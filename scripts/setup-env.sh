@@ -35,8 +35,8 @@ fi
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
 echo "✓ Found Python $PYTHON_VERSION"
 
-# Check minimum Python version (3.8+)
-MIN_VERSION="3.8"
+# Check minimum Python version (3.13+)
+MIN_VERSION="3.13"
 CURRENT_VERSION=$($PYTHON_CMD -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 
 if [ "$(printf '%s\n' "$MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
