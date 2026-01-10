@@ -1,0 +1,4 @@
+# Crossword Generator Dependencies
+
+# AI word generation (optional but recommended)
+anthropic>=0.39.0
