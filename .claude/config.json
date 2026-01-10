@@ -1,66 +1,63 @@
 {
-  // Claude Code Configuration
-  "version": "1.0.0",
-  "project": {
-    "name": "Crossword Generator",
-    "description": "AI-powered crossword puzzle generator with NYT-style constraints",
-    "language": "python",
-    "pythonVersion": "3.13+"
-  },
-  
-  // Project Context
-  "context": {
-    "documentationFiles": [
-      "README.md",
-      "CLAUDE.md",
-      "DESIGN.md",
-      ".github/CONSTITUTION-PYTHON.md",
-      ".github/CONSTITUTION-COPYRIGHT.md"
-    ],
-    "primarySourceDirectory": "src",
-    "testDirectory": null,
-    "buildDirectory": "output"
-  },
-  
-  // Coding Standards
-  "standards": {
-    "style": "PEP 8 with Black formatting",
-    "lineLength": 88,
-    "copyrightRequired": true,
-    "copyrightYear": 2026,
-    "copyrightHolder": "TrailLensCo",
-    "license": "Proprietary"
-  },
-  
-  // Development Workflow
-  "workflow": {
-    "branchingStrategy": "topic branches with PR workflow",
-    "requirePR": true,
-    "requireReviews": false,
-    "mainBranch": "main",
-    "protectedBranches": ["main"]
-  },
-  
-  // AI Assistance Preferences
-  "aiPreferences": {
-    "includeComments": "minimal",
-    "includeDocstrings": true,
-    "includeTypeHints": true,
-    "explainComplexLogic": true,
-    "suggestRefactoring": true
-  },
-  
-  // File Patterns
-  "patterns": {
-    "ignore": [
-      ".venv/**",
-      "__pycache__/**",
-      "*.pyc",
-      ".pytest_cache/**",
-      ".mypy_cache/**",
-      "output/**",
-      "*.svg",
-      "*.html"
-    ]
-  }
+    // Claude Code Configuration
+    "version": "1.0.0",
+    "project": {
+        "name": "Crossword Generator",
+        "description": "AI-powered crossword puzzle generator with NYT-style constraints",
+        "language": "python",
+        "pythonVersion": "3.13+"
+    },
+    // Project Context
+    "context": {
+        "documentationFiles": [
+            "README.md",
+            "CLAUDE.md",
+            "DESIGN.md",
+            ".github/CONSTITUTION-PYTHON.md",
+            ".github/CONSTITUTION-COPYRIGHT.md"
+        ],
+        "primarySourceDirectory": "src",
+        "testDirectory": null,
+        "buildDirectory": "output"
+    },
+    // Coding Standards
+    "standards": {
+        "style": "PEP 8 with Black formatting",
+        "lineLength": 88,
+        "copyrightRequired": true,
+        "copyrightYear": 2026,
+        "copyrightHolder": "TrailLensCo",
+        "license": "Proprietary"
+    },
+    // Development Workflow
+    "workflow": {
+        "branchingStrategy": "topic branches with PR workflow",
+        "requirePR": true,
+        "requireReviews": false,
+        "mainBranch": "main",
+        "protectedBranches": [
+            "main"
+        ]
+    },
+    // AI Assistance Preferences
+    "aiPreferences": {
+        "includeComments": "minimal",
+        "includeDocstrings": true,
+        "includeTypeHints": true,
+        "explainComplexLogic": true,
+        "suggestRefactoring": true
+    },
+    // File Patterns
+    "patterns": {
+        "ignore": [
+            ".venv/**",
+            "__pycache__/**",
+            "*.pyc",
+            ".pytest_cache/**",
+            ".mypy_cache/**",
+            "output/**",
+            "*.svg",
+            "*.html"
+        ]
+    }
 }
