@@ -362,3 +362,68 @@ prompts:
               suggestion: "Consider simpler angle"
           recommendations:
             - "Consider changing 23 Down clue"
+
+  # ============================================================
+  # LOG ANALYSIS AND REPORT GENERATION
+  # Called after puzzle generation to analyze execution logs
+  # ============================================================
+  log_analysis_report:
+    name: "Analyze Generation Log"
+    description: "Generates a narrative analysis report from puzzle generation logs"
+    max_calls: 1
+
+    model: "claude-haiku-4-20250514"  # Use Haiku for cost-efficient analysis
+    temperature: 0.5
+    max_tokens: 4096
+
+    system: |
+      You are a technical analyst reviewing crossword puzzle generation logs.
+      Your goal is to provide a clear, actionable summary of the generation process,
+      highlighting successes, bottlenecks, and recommendations for improvement.
+
+    user: |
+      Analyze this crossword puzzle generation log and create a comprehensive report.
+
+      LOG METRICS:
+      {{metrics}}
+
+      KEY EVENTS:
+      {{events}}
+
+      WARNINGS AND ERRORS:
+      {{warnings}}
+
+      Generate a markdown report with these sections:
+
+      # Crossword Generation Report
+      Generated: {{timestamp}}
+
+      ## Summary
+      [2-3 paragraph narrative summary of the generation run]
+
+      ## Performance Metrics
+      - Total Runtime: X seconds
+      - AI API Calls: X (under limit of Y)
+      - Token Usage: X input / Y output
+      - CSP Backtracks: X
+      - Success Rate: X%
+
+      ## Key Events
+      [Chronological list of major events with timestamps]
+
+      ## Issues Encountered
+      [List issues with severity levels - CRITICAL, WARNING, INFO]
+
+      ## Recommendations
+      [Actionable suggestions for improving future runs]
+
+      ## Detailed Logs
+      See full logs at: [log filename]
+
+    output_format:
+      type: markdown
+      schema: "Full markdown document with headers and formatting"
+
+    validation:
+      min_length: 500  # Ensure substantive report
+      required_sections: ["Summary", "Performance Metrics", "Key Events"]

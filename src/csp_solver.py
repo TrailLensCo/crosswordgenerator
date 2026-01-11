@@ -3,6 +3,7 @@ Constraint Satisfaction Problem solver for crossword puzzles.
 Uses AC-3 algorithm with backtracking and heuristics.
 """
 
+import logging
 import sys
 import time
 from typing import List, Dict, Set, Optional, Tuple, Callable
@@ -45,7 +46,8 @@ class CrosswordCSP:
         self.word_generator = word_generator
         self.verbose = verbose
         self._last_progress_time = time.time()
-        self._progress_interval = 2.0  # Print progress every 2 seconds
+        self._progress_interval = 2.0  # Log progress every 2 seconds
+        self.logger = logging.getLogger(__name__)
 
         # Find all word slots
         self.variables = grid.find_word_slots()
@@ -84,11 +86,10 @@ class CrosswordCSP:
                      f"{sum(len(d) for d in self.domains.values())} total domain values")
 
     def _log(self, message: str):
-        """Print a log message with timestamp."""
+        """Log a message with timestamp."""
         if self.verbose:
             elapsed = time.time() - self.stats["start_time"]
-            print(f"   [{elapsed:6.1f}s] {message}")
-            sys.stdout.flush()
+            self.logger.info(f"   [{elapsed:6.1f}s] {message}")
 
     def _maybe_log_progress(self, assignment: Dict[WordSlot, str]):
         """Log progress periodically during search."""

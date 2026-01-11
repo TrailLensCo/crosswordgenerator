@@ -29,6 +29,7 @@ Usage:
 """
 
 import json
+import logging
 import os
 import sys
 import time
@@ -51,6 +52,7 @@ from config import (
     discover_api_key, get_model, ConfigValidationError
 )
 from ai_limiter import AICallbackLimiter
+from logging_config import setup_logging
 
 # Try to import optional modules
 try:
@@ -93,6 +95,19 @@ class CrosswordGenerator:
         self.config = config
         self.start_time = time.time()
 
+        # Initialize logging
+        self.log_file_path = setup_logging(
+            output_dir=config.output.directory,
+            log_level=config.output.log_level,
+            log_file_prefix=config.output.log_file_prefix,
+            enable_console=config.output.enable_console_logging,
+        )
+        self.logger = logging.getLogger(__name__)
+        self.logger.info(f"Initialized CrosswordGenerator for topic: {config.topic}")
+        self.logger.info(f"Grid size: {config.size}x{config.size}, Difficulty: {config.difficulty}")
+        self.logger.info(f"Max word length: {config.get_max_word_length()}")
+        self.logger.debug(f"Log file: {self.log_file_path}")
+
         # Initialize AI limiter
         self.limiter = AICallbackLimiter(
             max_total=config.generation.max_ai_callbacks,
@@ -107,7 +122,7 @@ class CrosswordGenerator:
                 try:
                     self.prompt_loader = PromptLoader(prompt_config_path)
                 except Exception as e:
-                    print(f"Warning: Could not load prompts: {e}")
+                    self.logger.warning(f"Could not load prompts: {e}")
 
         # Discover API key (unless --no-ai is set)
         api_key = None if config.no_ai else discover_api_key(config)
@@ -143,104 +158,96 @@ class CrosswordGenerator:
         Returns:
             Dict of output file paths, or None if generation failed
         """
-        print("=" * 60)
-        print("CROSSWORD GENERATOR")
-        print("=" * 60)
-        print(f"   Theme: {self.config.topic}")
-        print(f"   Size: {self.config.size}x{self.config.size}")
-        print(f"   Difficulty: {self.config.difficulty}")
-        print(f"   Puzzle Type: {self.config.puzzle_type}")
-        print(f"   AI Available: {self.ai.is_available()}")
-        print()
+        self.logger.info("=" * 60)
+        self.logger.info("CROSSWORD GENERATOR")
+        self.logger.info("=" * 60)
+        self.logger.info(f"   Theme: {self.config.topic}")
+        self.logger.info(f"   Size: {self.config.size}x{self.config.size}")
+        self.logger.info(f"   Difficulty: {self.config.difficulty}")
+        self.logger.info(f"   Puzzle Type: {self.config.puzzle_type}")
+        self.logger.info(f"   AI Available: {self.ai.is_available()}")
 
         # Step 1: Generate word list
-        print("Step 1: Building word list...")
+        self.logger.info("Step 1: Building word list...")
         self._build_word_list()
-        print(f"   - {len(self.word_list)} words available")
-        print(f"   - {len(self.themed_words)} themed words with clues")
-        print()
+        self.logger.info(f"   - {len(self.word_list)} words available")
+        self.logger.info(f"   - {len(self.themed_words)} themed words with clues")
 
         # Step 2: Create and validate grid
-        print("Step 2: Creating grid...")
+        self.logger.info("Step 2: Creating grid...")
         grid = self._create_grid()
         if grid is None:
-            print("   X Failed to create valid grid")
+            self.logger.error("   X Failed to create valid grid")
             return None
-        print("   - Grid created")
+        self.logger.info("   - Grid created")
 
         # Step 3: Validate structure
-        print("\nStep 3: Validating structure...")
+        self.logger.info("Step 3: Validating structure...")
         validation = validate_puzzle(
             grid, self.word_list, check_fillability=False
         )
         if not validation.valid:
-            print("   X Invalid structure:")
+            self.logger.error("   X Invalid structure:")
             for error in validation.errors:
-                print(f"      - {error}")
+                self.logger.error(f"      - {error}")
             return None
-        print("   - Structure valid")
-        print(f"   - {validation.stats['total_words']} word slots")
-        print()
+        self.logger.info("   - Structure valid")
+        self.logger.info(f"   - {validation.stats['total_words']} word slots")
 
         # Step 4: Fill grid using CSP
-        print("Step 4: Filling grid with CSP solver...")
+        self.logger.info("Step 4: Filling grid with CSP solver...")
         filled_grid, solution = self._fill_grid(grid)
         if solution is None:
-            print("   X Could not fill grid")
+            self.logger.error("   X Could not fill grid")
             return None
-        print("   - Grid filled successfully!")
-        print()
+        self.logger.info("   - Grid filled successfully!")
 
         # Step 5: Validate fillability
-        print("Step 5: Validating solution...")
-        print(f"   - All {len(solution)} words placed")
-        print("   - Puzzle is completeable")
-        print()
+        self.logger.info("Step 5: Validating solution...")
+        self.logger.info(f"   - All {len(solution)} words placed")
+        self.logger.info("   - Puzzle is completeable")
 
         # Step 6: Generate clues
-        print("Step 6: Generating clues...")
+        self.logger.info("Step 6: Generating clues...")
         clues = self._generate_clues(solution)
-        print(f"   - {len(clues['across'])} across clues")
-        print(f"   - {len(clues['down'])} down clues")
-        print()
+        self.logger.info(f"   - {len(clues['across'])} across clues")
+        self.logger.info(f"   - {len(clues['down'])} down clues")
 
         # Step 7: Render output
-        print("Step 7: Rendering output...")
+        self.logger.info("Step 7: Rendering output...")
         output_files = self._render_output(filled_grid, solution, clues)
-        print(f"   - Generated {len(output_files)} files")
-        print()
+        self.logger.info(f"   - Generated {len(output_files)} files")
 
         # Step 8: Export YAML intermediate
         if 'yaml_intermediate' in self.config.output.formats and HAS_YAML_EXPORTER:
-            print("Step 8: Exporting YAML intermediate...")
+            self.logger.info("Step 8: Exporting YAML intermediate...")
             yaml_path = self._export_yaml(filled_grid, solution, clues)
             if yaml_path:
                 output_files['yaml_intermediate'] = yaml_path
-                print(f"   - Exported to {yaml_path}")
-            print()
+                self.logger.info(f"   - Exported to {yaml_path}")
 
         # Summary
         elapsed = time.time() - self.start_time
-        print("=" * 60)
-        print("GENERATION COMPLETE!")
-        print("=" * 60)
-        print("\nOutput files:")
+        self.logger.info("=" * 60)
+        self.logger.info("GENERATION COMPLETE!")
+        self.logger.info("=" * 60)
+        self.logger.info("Output files:")
         for name, path in output_files.items():
-            print(f"   {name}: {path}")
+            self.logger.info(f"   {name}: {path}")
 
         if self.ai.is_available():
             stats = self.ai.get_stats()
-            print(f"\nAI Stats:")
-            print(f"   API calls: {stats['api_calls']}")
-            print(f"   Words generated: {stats['words_generated']}")
-            print(f"   Cache hits: {stats['cache_hits']}")
-            print(f"   Tokens used: {stats.get('tokens_used', 0)}")
+            self.logger.info("AI Stats:")
+            self.logger.info(f"   API calls: {stats['api_calls']}")
+            self.logger.info(f"   Words generated: {stats['words_generated']}")
+            self.logger.info(f"   Cache hits: {stats['cache_hits']}")
+            self.logger.info(f"   Tokens used: {stats.get('tokens_used', 0)}")
 
         if self._csp_stats:
-            print(f"\nCSP Stats:")
-            print(f"   Backtracks: {self._csp_stats.get('backtracks', 0)}")
-            print(f"   AC-3 revisions: {self._csp_stats.get('ac3_revisions', 0)}")
-            print(f"   AI words added: {self._csp_stats.get('ai_words_added', 0)}")
+            self.logger.info("CSP Stats:")
+            self.logger.info(f"   Backtracks: {self._csp_stats.get('backtracks', 0)}")
+            self.logger.info(f"   AC-3 revisions: {self._csp_stats.get('ac3_revisions', 0)}")
+            self.logger.info(f"   AI words added: {self._csp_stats.get('ai_words_added', 0)}")
 
         # Word length distribution
         if solution:
@@ -250,15 +257,31 @@ class CrosswordGenerator:
                 length_dist[length] = length_dist.get(length, 0) + 1
 
             max_word_length = self.config.get_max_word_length()
-            print(f"\nWord Length Distribution:")
-            print(f"   Max allowed: {max_word_length} letters")
+            self.logger.info("Word Length Distribution:")
+            self.logger.info(f"   Max allowed: {max_word_length} letters")
             for length in sorted(length_dist.keys()):
                 count = length_dist[length]
                 bar = "█" * (count // 2)
                 marker = " ⚠" if length > max_word_length else ""
-                print(f"   {length:2d} letters: {count:3d} words {bar}{marker}")
+                self.logger.debug(f"   {length:2d} letters: {count:3d} words {bar}{marker}")
 
-        print(f"\nGeneration time: {elapsed:.2f} seconds")
+        self.logger.info(f"Generation time: {elapsed:.2f} seconds")
+
+        # Generate AI log analysis report if requested
+        if self.config.output.analyze_log and self.ai.is_available():
+            self.logger.info("Generating AI log analysis report...")
+            try:
+                from log_analyzer import LogAnalyzer
+                analyzer = LogAnalyzer(self.ai)
+                report_path = analyzer.analyze_log(
+                    log_path=self.log_file_path,
+                    output_dir=self.config.output.directory
+                )
+                if report_path:
+                    output_files['analysis_report'] = report_path
+                    self.logger.info(f"   - Analysis report saved to {report_path}")
+            except Exception as e:
+                self.logger.warning(f"Could not generate log analysis: {e}")
 
         return output_files
 
@@ -338,11 +361,11 @@ class CrosswordGenerator:
             # Sort by length (longer words first) for theme entries
             words.sort(key=len, reverse=True)
 
-            print(f"   - Loaded {len(words)} words from words_dictionary.json")
+            self.logger.debug(f"   - Loaded {len(words)} words from words_dictionary.json")
             return words
 
         except (json.JSONDecodeError, IOError, OSError) as e:
-            print(f"   - Warning: Could not load words_dictionary.json: {e}")
+            self.logger.warning(f"   - Could not load words_dictionary.json: {e}")
             return None
 
     def _get_hardcoded_word_list(self) -> List[str]:
@@ -794,7 +817,7 @@ class CrosswordGenerator:
                 stats=stats,
             )
         except Exception as e:
-            print(f"Warning: Could not export YAML: {e}")
+            self.logger.warning(f"Could not export YAML: {e}")
             return None
 
 

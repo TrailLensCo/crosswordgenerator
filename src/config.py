@@ -94,6 +94,11 @@ class OutputConfig:
         "svg_puzzle", "svg_clues", "svg_solution",
         "html_complete", "yaml_intermediate"
     ])
+    # Logging settings
+    log_level: str = "INFO"
+    log_file_prefix: str = "crossword_generator"
+    enable_console_logging: bool = True
+    analyze_log: bool = False
 
 
 @dataclass
@@ -251,6 +256,10 @@ class PuzzleConfig:
             config.output = OutputConfig(
                 directory=out_data.get('directory', config.output.directory),
                 formats=out_data.get('formats', config.output.formats),
+                log_level=out_data.get('log_level', config.output.log_level),
+                log_file_prefix=out_data.get('log_file_prefix', config.output.log_file_prefix),
+                enable_console_logging=out_data.get('enable_console_logging', config.output.enable_console_logging),
+                analyze_log=out_data.get('analyze_log', config.output.analyze_log),
             )
 
         if 'ai' in data:
@@ -319,6 +328,14 @@ class PuzzleConfig:
             config.author = args.author
         if hasattr(args, 'output') and args.output:
             config.output.directory = args.output
+        if hasattr(args, 'log_level') and args.log_level:
+            config.output.log_level = args.log_level
+        if hasattr(args, 'log_file_prefix') and args.log_file_prefix:
+            config.output.log_file_prefix = args.log_file_prefix
+        if hasattr(args, 'no_console_log') and args.no_console_log:
+            config.output.enable_console_logging = False
+        if hasattr(args, 'analyze_log') and args.analyze_log:
+            config.output.analyze_log = True
         if hasattr(args, 'max_ai_callbacks') and args.max_ai_callbacks:
             config.generation.max_ai_callbacks = args.max_ai_callbacks
         if hasattr(args, 'prompt_config') and args.prompt_config:
@@ -333,6 +350,8 @@ class PuzzleConfig:
             config.require_ai = True
         if hasattr(args, 'no_ai') and args.no_ai:
             config.no_ai = True
+        if hasattr(args, 'verbose') and args.verbose:
+            config.output.log_level = "DEBUG"
 
         return config
 
@@ -381,6 +400,14 @@ class PuzzleConfig:
             merged.author = cli_config.author
         if cli_config.output.directory != default.output.directory:
             merged.output.directory = cli_config.output.directory
+        if cli_config.output.log_level != default.output.log_level:
+            merged.output.log_level = cli_config.output.log_level
+        if cli_config.output.log_file_prefix != default.output.log_file_prefix:
+            merged.output.log_file_prefix = cli_config.output.log_file_prefix
+        if cli_config.output.enable_console_logging != default.output.enable_console_logging:
+            merged.output.enable_console_logging = cli_config.output.enable_console_logging
+        if cli_config.output.analyze_log != default.output.analyze_log:
+            merged.output.analyze_log = cli_config.output.analyze_log
         if (cli_config.generation.max_ai_callbacks !=
                 default.generation.max_ai_callbacks):
             merged.generation.max_ai_callbacks = (
@@ -674,11 +701,34 @@ Examples:
         help="Force use of base word list fallback; skip AI generation"
     )
 
+    # Logging options
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        metavar="LEVEL",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    )
+    parser.add_argument(
+        "--log-file-prefix",
+        metavar="PREFIX",
+        help="Prefix for log filename (default: crossword_generator)"
+    )
+    parser.add_argument(
+        "--no-console-log",
+        action="store_true",
+        help="Disable console logging (only log to file)"
+    )
+    parser.add_argument(
+        "--analyze-log",
+        action="store_true",
+        help="Generate AI analysis report of the log file after completion"
+    )
+
     # Other options
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Enable verbose logging"
+        help="Enable verbose logging (sets log level to DEBUG)"
     )
     parser.add_argument(
         "--dry-run",

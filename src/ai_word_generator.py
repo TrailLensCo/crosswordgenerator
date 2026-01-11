@@ -17,6 +17,7 @@ Provides dynamic word generation for crossword puzzles:
 Uses the Anthropic Claude API with callback limiting and prompt templates.
 """
 
+import logging
 import os
 import json
 import re
@@ -86,6 +87,7 @@ class AIWordGenerator:
         self.model = model
         self.limiter = limiter or AICallbackLimiter()
         self.prompt_loader = prompt_loader
+        self.logger = logging.getLogger(__name__)
 
         if HAS_ANTHROPIC and self.api_key:
             self.client = anthropic.Anthropic(api_key=self.api_key)
@@ -137,7 +139,7 @@ class AIWordGenerator:
 
         # Check limit before calling
         if not self.limiter.can_call(prompt_type):
-            print(f"   AI limit reached for {prompt_type}")
+            self.logger.warning(f"   AI limit reached for {prompt_type}")
             return None
 
         try:
@@ -165,7 +167,7 @@ class AIWordGenerator:
             return text
 
         except Exception as e:
-            print(f"AI request error: {e}")
+            self.logger.error(f"AI request error: {e}", exc_info=True)
             self.limiter.record_call(prompt_type, success=False)
             return None
 

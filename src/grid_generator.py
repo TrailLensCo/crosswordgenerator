@@ -9,6 +9,7 @@ Creates valid crossword grid patterns that meet NYT requirements:
 - No words shorter than 3 letters
 """
 
+import logging
 import os
 import sys
 from typing import List, Set, Tuple, Optional
@@ -140,6 +141,7 @@ class GridGenerator:
         self.size = size
         self.max_word_length = max_word_length
         self._validated_patterns_cache: Optional[List[List[Tuple[int, int]]]] = None
+        self.logger = logging.getLogger(__name__)
 
     def generate(self, pattern_index: int = 0) -> Grid:
         """

@@ -239,3 +239,107 @@ To add new output formats:
 2. Take CrosswordData as input for consistency
 3. Call from `CrosswordGenerator._render_output()`
 4. Add to returned dict of output files
+
+## Logging
+
+The codebase uses Python's built-in `logging` module with dual handlers (console + file) for comprehensive diagnostics.
+
+### Log Configuration
+
+Log settings are controlled via [config.py](src/config.py) OutputConfig:
+
+- `log_level`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `log_file_prefix`: Prefix for log filename (default: crossword_generator)
+- `enable_console_logging`: Enable/disable console output (default: True)
+- `analyze_log`: Generate AI analysis report after completion (default: False)
+
+### CLI Arguments
+
+```bash
+# Set log level
+python crossword_generator.py --topic "Space" --log-level DEBUG
+
+# Disable console logging (file only)
+python crossword_generator.py --topic "Space" --no-console-log
+
+# Generate AI analysis report
+python crossword_generator.py --topic "Space" --analyze-log
+
+# Verbose mode (sets DEBUG level)
+python crossword_generator.py --topic "Space" --verbose
+```
+
+### Log File Location
+
+Logs are saved to the output directory with timestamp:
+
+```
+./output/crossword_generator_20260111_142345.log
+```
+
+### Log Levels
+
+**INFO level** (~100-200 lines per run):
+
+- Generation steps (1-7)
+- Word list stats
+- Grid selection
+- CSP solver progress (every 2 seconds)
+- AI API calls
+- Validation results
+- Output file paths
+
+**DEBUG level** (~1000-2000 lines per run):
+
+- All of INFO, plus:
+- Word-by-word additions
+- Grid pattern validation details
+- AC-3 arc consistency operations
+- Every CSP backtrack
+- Domain size changes
+- AI prompt/response details
+- Token usage per call
+
+### Log Analysis Reports
+
+When `--analyze-log` is enabled, an AI-powered analysis report is generated after puzzle completion:
+
+```bash
+python crossword_generator.py --config config.yaml --analyze-log
+```
+
+The report (`generation_report_YYYYMMDD_HHMMSS.md`) includes:
+
+- **Summary**: 2-3 paragraph narrative of the generation process
+- **Performance Metrics**: Runtime, API calls, token usage, backtracks
+- **Key Events**: Chronological timeline with timestamps
+- **Issues Encountered**: Warnings and errors with severity levels
+- **Recommendations**: Actionable improvements for future runs
+
+### Analyzing Logs
+
+Common analysis patterns:
+
+```bash
+# Find CSP failures
+grep "Could not fill grid" output/crossword_generator_*.log
+
+# Count AI API calls
+grep -c "API call:" output/crossword_generator_*.log
+
+# View backtrack history
+grep "Backtrack" output/crossword_generator_*.log
+
+# Check word length distribution
+grep "letters:" output/crossword_generator_*.log
+
+# Find performance bottlenecks
+grep "elapsed" output/crossword_generator_*.log
+```
+
+### Implementation Details
+
+- **Logging initialization**: [logging_config.py](src/logging_config.py) configures dual handlers in `setup_logging()`
+- **Log rotation**: RotatingFileHandler with 10MB max size, 5 backups
+- **Format**: `%(asctime)s - %(levelname)-8s - %(name)s:%(lineno)d - %(funcName)s - %(message)s`
+- **Analysis**: [log_analyzer.py](src/log_analyzer.py) parses logs and uses Claude Haiku for report generation
