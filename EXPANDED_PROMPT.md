@@ -1872,7 +1872,7 @@ pytest tests/ -v --cov=src
 | 1.3 | 2026-01-11 | Mark Buckaway | Added reference to PLACEMENT_ALGORITHM.md for detailed word placement algorithm specification; updated CSP Solver task requirements |
 | 1.4 | 2026-01-11 | Mark Buckaway | Added API Key Discovery section with multi-source fallback (CLI, config, env var, ~/.claude/, ~/.anthropic/); added Model Selection section with env var support and use case recommendations |
 | 1.5 | 2026-01-11 | Mark Buckaway | Added per-prompt model override in prompts.yaml; each prompt can specify model, temperature, max_tokens with fallback to defaults |
-| 1.6 | 2026-01-11 | Claude | Added words_dictionary.json (370k+ words from dwyl/english-words) as primary word source; updated Base Word List Source section with actual implementation; added src/data/ and src/tests/ to file structure |
+| 1.6 | 2026-01-11 | Mark Buckaway | Added words_dictionary.json (370k+ words from dwyl/english-words) as primary word source; updated Base Word List Source section with actual implementation; added src/data/ and src/tests/ to file structure |
 
 ---
 

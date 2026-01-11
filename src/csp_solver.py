@@ -336,8 +336,6 @@ class CrosswordCSP:
         if slot is None:
             return assignment
 
-        domain_size = len(self.domains[slot])
-
         # Try each value in domain
         for word in self.order_domain_values(slot, assignment):
             self.stats["assignments_tried"] += 1
@@ -400,7 +398,6 @@ class CrosswordCSP:
             return None
 
         if self.verbose:
-            total_domain = sum(len(d) for d in self.domains.values())
             self._log(f"Starting backtracking search...")
             # Show domain sizes for each slot
             for slot in sorted(self.variables, key=lambda s: len(self.domains[s])):
