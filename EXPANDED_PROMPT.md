@@ -307,27 +307,35 @@ quality = (frequency_score * 0.5) + (friendliness_score * 0.5)
 
 When AI limits are reached or AI is unavailable, the system falls back to a base word list:
 
-**Source:** Downloaded/cached public dictionary
+**Primary Source:** `src/data/words_dictionary.json` from [dwyl/english-words](https://github.com/dwyl/english-words)
 
 **Implementation:**
-```yaml
-base_word_list:
-  source: "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
-  cache_path: "./data/base_words.txt"
-  cache_expiry_days: 30
-  fallback_builtin: true  # Use hardcoded minimal list if download fails
+- The JSON file contains 370,000+ English words in `{"word": 1}` format
+- Words are loaded via `_load_words_from_json()` in `crossword_generator.py`
+- Words are filtered to: alphabetic only, 3+ letters, uppercase
+- Words are sorted by length (longest first) for theme entry placement
+
+**Fallback Priority:**
+1. `src/data/words_dictionary.json` - Primary dictionary (370k+ words)
+2. Hardcoded word list in `_get_hardcoded_word_list()` (~950 common crossword words)
+
+**Testing Without API Key:**
+The generator works fully offline without an Anthropic API key:
+- Run tests: `python3 -m unittest src.tests.test_word_fallback -v`
+- Generate puzzle: `python3 src/crossword_generator.py --topic "Animals" --size 5`
+
+**Word List Location:**
+```
+src/
+└── data/
+    └── words_dictionary.json    # 370k+ words from dwyl/english-words
 ```
 
 **Word List Requirements:**
-- Minimum 50,000 words
+- Contains 370,000+ words (exceeds minimum 50,000 requirement)
 - Organized by length for efficient pattern matching
-- Pre-filtered to remove offensive content
+- Pre-filtered during load to remove non-alphabetic entries
 - Includes common crossword words and proper nouns
-
-**Fallback Priority:**
-1. Cached downloaded word list
-2. Re-download from source
-3. Built-in minimal word list (5,000 common words)
 
 ### SVG Output Requirements
 
@@ -1727,7 +1735,12 @@ crossword_generator/
 │   ├── validator.py            # Validation (unchanged)
 │   ├── svg_renderer.py         # SVG output (unchanged)
 │   ├── page_renderer.py        # Page rendering (unchanged)
-│   └── markdown_exporter.py    # Legacy (deprecated)
+│   ├── markdown_exporter.py    # Legacy (deprecated)
+│   ├── data/
+│   │   └── words_dictionary.json  # 370k+ words from dwyl/english-words
+│   └── tests/
+│       ├── __init__.py
+│       └── test_word_fallback.py  # Tests for word dictionary fallback
 ├── config/
 │   ├── prompts.yaml            # NEW: AI prompt templates
 │   ├── default_config.yaml     # NEW: Default configuration
@@ -1859,6 +1872,7 @@ pytest tests/ -v --cov=src
 | 1.3 | 2026-01-11 | Mark Buckaway | Added reference to PLACEMENT_ALGORITHM.md for detailed word placement algorithm specification; updated CSP Solver task requirements |
 | 1.4 | 2026-01-11 | Mark Buckaway | Added API Key Discovery section with multi-source fallback (CLI, config, env var, ~/.claude/, ~/.anthropic/); added Model Selection section with env var support and use case recommendations |
 | 1.5 | 2026-01-11 | Mark Buckaway | Added per-prompt model override in prompts.yaml; each prompt can specify model, temperature, max_tokens with fallback to defaults |
+| 1.6 | 2026-01-11 | Claude | Added words_dictionary.json (370k+ words from dwyl/english-words) as primary word source; updated Base Word List Source section with actual implementation; added src/data/ and src/tests/ to file structure |
 
 ---
 
