@@ -1,0 +1,55 @@
+# Crossword Puzzle Configuration
+# Newfoundland culture themed puzzle
+# Sample configuration for 5x5 grid (works without AI)
+
+puzzle:
+  topic: "Newfoundland culture"
+  size: 5
+  difficulty: wednesday
+  puzzle_type: revealer
+  author: "Mark Buckaway"
+
+  # Topic-specific aspects to emphasize
+  topic_aspects:
+    - Traditional foods (toutons, jiggs dinner, cod)
+    - Music and dance (accordion, ugly stick, jigs)
+    - Language and expressions (screech-in, b'y, where ya to)
+    - Geography (The Rock, St. John's, Signal Hill)
+    - Maritime traditions (fishing, sealing, boat building)
+    - Festivals (George Street, Regatta Day, mummering)
+
+generation:
+  max_ai_callbacks: 50
+  limits:
+    themed_word_list: 3
+    pattern_word_generation: 25
+    clue_generation_batch: 5
+    theme_development: 2
+    validation_check: 1
+  word_quality_threshold: 0.7
+  enable_pattern_matching: true
+  fallback_to_base_words: true
+  max_retries_per_pattern: 3
+
+output:
+  directory: "./output/newfoundland"
+  formats:
+    - svg_puzzle
+    - svg_clues
+    - svg_solution
+    - html_complete
+    - yaml_intermediate
+
+ai:
+  model: "claude-sonnet-4-20250514"
+  prompt_config: "./config/prompts.yaml"
+  # api_key: null  # Discovered automatically (see API Key Discovery)
+  # api_key_env: "ANTHROPIC_API_KEY"
+  # model_env: "ANTHROPIC_MODEL"
+
+validation:
+  enforce_nyt_rules: true
+  min_word_length: 3
+  max_black_square_ratio: 0.16
+  require_connectivity: true
+  require_symmetry: true

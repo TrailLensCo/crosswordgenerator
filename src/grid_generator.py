@@ -24,11 +24,14 @@ from models import Grid, WordSlot, Direction, CellType
 # Format: list of (row, col) for black squares (only need top-left quadrant + center)
 # Symmetry is applied automatically
 
-PATTERNS_5x5 = [
-    # Mini crossword style - no blocks needed for 5x5 to work
+PATTERNS_3x3 = [
+    # Fully open 3x3
     [],
-    # Simple corner pattern
-    [(0, 4), (4, 0)],
+]
+
+PATTERNS_5x5 = [
+    # Mini crossword style - no blocks, fully open
+    [],
 ]
 
 PATTERNS_7x7 = [
@@ -44,8 +47,8 @@ PATTERNS_9x9 = [
 ]
 
 PATTERNS_11x11 = [
-    [(0, 5), (1, 5), (2, 4), (4, 2), (5, 0), (5, 1)],
-    [(0, 4), (0, 6), (1, 4), (1, 6), (4, 0), (4, 1), (5, 5), (6, 0), (6, 1)],
+    # Fully open grid - no black squares (all squares crossed)
+    [],
 ]
 
 PATTERNS_13x13 = [
@@ -168,6 +171,7 @@ class GridGenerator:
     def _get_patterns(self) -> List[List[Tuple[int, int]]]:
         """Get predefined patterns for current size."""
         pattern_map = {
+            3: PATTERNS_3x3,
             5: PATTERNS_5x5,
             7: PATTERNS_7x7,
             9: PATTERNS_9x9,
