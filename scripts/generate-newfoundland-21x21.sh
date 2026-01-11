@@ -8,7 +8,7 @@
 # via any medium, is strictly prohibited without the express
 # written permission of TrailLensCo.
 
-set -euo pipefail
+set -uo pipefail
 
 # Script to generate Newfoundland 21x21 crossword puzzle with logging and analysis
 
@@ -31,6 +31,12 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 1
 fi
 
+# Check if src directory exists
+if [ ! -d "$SRC_DIR" ]; then
+    echo "❌ Error: Source directory not found: $SRC_DIR"
+    exit 1
+fi
+
 # Check if API key is available
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
     echo "⚠️  Warning: ANTHROPIC_API_KEY not set in environment"
@@ -42,7 +48,10 @@ if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
 fi
 
 # Change to src directory
-cd "$SRC_DIR"
+if ! cd "$SRC_DIR"; then
+    echo "❌ Error: Failed to change to directory: $SRC_DIR"
+    exit 1
+fi
 
 # Run the generator with logging and analysis
 echo "🚀 Starting puzzle generation..."
