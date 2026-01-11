@@ -1,0 +1,174 @@
+# ==============================================================================
+# Crossword Puzzle Configuration File
+# ==============================================================================
+#
+# This YAML file configures all aspects of crossword puzzle generation.
+# For command-line usage, see: python crossword_generator.py --help
+#
+# SECTIONS:
+#   - puzzle: Basic puzzle settings (topic, size, difficulty, etc.)
+#   - generation: AI generation controls and limits
+#   - output: Output directory and file formats
+#   - ai: AI model and API configuration
+#   - validation: Grid validation rules
+#
+# ==============================================================================
+
+# ==============================================================================
+# PUZZLE SETTINGS
+# ==============================================================================
+puzzle:
+  # Topic/theme for the puzzle
+  # This guides AI word generation and clue creation
+  topic: "Newfoundland culture"
+
+  # Grid size (dimension of square grid)
+  # Valid sizes: 5, 9, 11, 15, 21
+  # - 5x5: Mini puzzle (10 words)
+  # - 11x11: Standard daily puzzle (30-40 words)
+  # - 15x15: Sunday-sized puzzle (70-80 words)
+  # - 21x21: Large Sunday puzzle (140+ words)
+  size: 21
+
+  # Difficulty level
+  # Valid options: monday, tuesday, wednesday, thursday, friday, saturday
+  # Affects clue complexity and obscurity
+  difficulty: wednesday
+
+  # Puzzle type
+  # Valid options: revealer, themeless, quote, rebus
+  # - revealer: Theme with reveal answer
+  # - themeless: No central theme
+  # - quote: Puzzle contains a quote
+  # - rebus: Multiple letters in some squares
+  puzzle_type: themeless
+
+  # Author name (appears in output files)
+  author: "Mark Buckaway"
+
+  # Topic-specific aspects to emphasize (optional)
+  # Guides AI to focus on specific sub-themes
+  # Only used if AI generation is enabled
+  topic_aspects:
+    - Traditional foods (toutons, jiggs dinner, cod)
+    - Music and dance (accordion, ugly stick, jigs)
+    - Language and expressions (screech-in, b'y, where ya to)
+    - Geography (The Rock, St. John's, Signal Hill)
+    - Maritime traditions (fishing, sealing, boat building)
+    - Festivals (George Street, Regatta Day, mummering)
+
+# ==============================================================================
+# GENERATION SETTINGS
+# ==============================================================================
+generation:
+  # Maximum total AI API calls allowed across all generation phases
+  # Prevents runaway costs
+  max_ai_callbacks: 50
+
+  # Per-category AI call limits
+  # Finer-grained control over where AI calls are spent
+  limits:
+    themed_word_list: 3          # Calls for generating themed word lists
+    pattern_word_generation: 25  # Calls for filling patterns during CSP solve
+    clue_generation_batch: 5     # Calls for generating clue batches
+    theme_development: 2         # Calls for theme development
+    validation_check: 1          # Calls for validation checks
+
+  # Minimum quality score for AI-generated words (0.0-1.0)
+  # Higher = more selective, lower = more permissive
+  word_quality_threshold: 0.7
+
+  # Enable pattern matching during grid fill
+  # If true, uses CSP with pattern matching for better fills
+  enable_pattern_matching: true
+
+  # Fall back to base word list if AI unavailable or exhausted
+  # If false, generation fails when AI limits are reached
+  fallback_to_base_words: true
+
+  # Maximum retries per pattern when requesting AI words
+  # Prevents infinite loops during difficult fills
+  max_retries_per_pattern: 3
+
+# ==============================================================================
+# OUTPUT SETTINGS
+# ==============================================================================
+output:
+  # Directory where output files will be saved
+  # Created automatically if it doesn't exist
+  directory: "./output/newfoundland-21x21"
+
+  # Output file formats to generate
+  # Valid formats:
+  #   - svg_puzzle: Blank puzzle grid (SVG)
+  #   - svg_clues: Clue list (SVG)
+  #   - svg_solution: Filled solution grid (SVG)
+  #   - html_complete: All-in-one HTML file with puzzle, clues, solution
+  #   - markdown: Markdown format (text-based)
+  #   - yaml_intermediate: YAML format with all puzzle data
+  formats:
+    - svg_puzzle
+    - svg_clues
+    - svg_solution
+    - html_complete
+    - yaml_intermediate
+
+# ==============================================================================
+# AI CONFIGURATION
+# ==============================================================================
+ai:
+  # AI model to use for generation
+  # Current models: claude-sonnet-4-20250514, claude-opus-4-5-20251101
+  # Sonnet is faster and cheaper, Opus is more capable
+  model: "claude-sonnet-4-20250514"
+
+  # Path to prompts.yaml file containing AI prompts
+  # Allows customization of AI behavior
+  prompt_config: "./config/prompts.yaml"
+
+  # === API Key Discovery ===
+  # API keys are discovered automatically in this priority order:
+  #   1. --api-key CLI argument
+  #   2. This api_key field (if uncommented)
+  #   3. ANTHROPIC_API_KEY environment variable
+  #   4. .claude-apikey.txt file in repository root
+  #   5. ~/.claude/credentials.json
+  #   6. ~/.anthropic/api_key
+  #   7. ~/.config/anthropic/config.json
+  #
+  # Recommended: Create .claude-apikey.txt in repo root (gitignored)
+  # api_key: null  # Uncomment and set to override discovery
+
+  # Environment variable name for API key (default: ANTHROPIC_API_KEY)
+  # api_key_env: "ANTHROPIC_API_KEY"
+
+  # Environment variable name for model (default: ANTHROPIC_MODEL)
+  # model_env: "ANTHROPIC_MODEL"
+
+# ==============================================================================
+# VALIDATION SETTINGS
+# ==============================================================================
+validation:
+  # Enforce New York Times crossword construction rules
+  # - 180° rotational symmetry
+  # - All white squares connected
+  # - Minimum word length
+  # - Maximum black square ratio
+  enforce_nyt_rules: true
+
+  # Minimum word length in grid (standard: 3)
+  # Shorter words make puzzles easier but less elegant
+  min_word_length: 3
+
+  # Maximum ratio of black squares to total squares
+  # NYT standard: 0.16 (16% maximum)
+  # Lower ratio = more open grid
+  max_black_square_ratio: 0.16
+
+  # Require all white squares to be connected
+  # Standard NYT rule: no isolated word sections
+  require_connectivity: true
+
+  # Require 180° rotational symmetry
+  # Standard NYT rule: grid looks same upside-down
+  require_symmetry: true
