@@ -269,7 +269,8 @@ class AIWordGenerator:
 
 Requirements:
 - Word lengths between {min_length} and {max_length} letters
-- Mix of lengths (some short fill words 3-5 letters, some longer theme entries 7-15 letters)
+- CRITICAL Distribution: MOST (60-65%) should be SHORT (3-7 letters),
+  SOME (25-30%) should be MEDIUM (8-12 letters), FEW (10%) should be LONG (up to {max_length} letters)
 - Real, common English words or well-known proper nouns
 - No spaces, hyphens, or special characters
 - Provide an engaging, concise crossword clue for each

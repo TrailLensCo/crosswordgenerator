@@ -43,6 +43,15 @@ prompts:
       - Minimum word length: 3 letters
       - Maximum word length: {{max_word_length}} letters
 
+      CRITICAL - Word Length Distribution:
+      Generate a natural mix that favors shorter words for better grid solvability:
+      - MOST words (60-65%) should be SHORT: 3-7 letters (fill words)
+      - SOME words (25-30%) should be MEDIUM: 8-12 letters (standard entries)
+      - FEW words (10%) should be LONG: up to {{max_word_length}} letters (theme entries)
+
+      This distribution ensures the puzzle is solvable. Ultra-long words are rare in
+      English and create over-constrained grids. Focus on shorter, crossword-friendly words.
+
       For each word, provide:
       1. The word (uppercase, no spaces)
       2. A {{difficulty}}-appropriate clue
