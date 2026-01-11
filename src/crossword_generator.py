@@ -28,6 +28,7 @@ Usage:
     python crossword_generator.py --topic "Movies" --api-key "your-key"
 """
 
+import json
 import os
 import sys
 import time
@@ -266,7 +267,62 @@ class CrosswordGenerator:
         self.word_list.sort(key=len, reverse=True)
 
     def _get_base_word_list(self) -> List[str]:
-        """Get base crossword word list."""
+        """Get base crossword word list.
+
+        First attempts to load from words_dictionary.json (dwyl/english-words).
+        Falls back to hardcoded word list if JSON file is not available.
+
+        Returns:
+            List of uppercase English words suitable for crossword puzzles.
+        """
+        # Try to load from JSON file first
+        json_words = self._load_words_from_json()
+        if json_words:
+            return json_words
+
+        # Fall back to hardcoded list
+        return self._get_hardcoded_word_list()
+
+    def _load_words_from_json(self) -> Optional[List[str]]:
+        """Load words from words_dictionary.json file.
+
+        Returns:
+            List of uppercase words if file exists and is valid, None otherwise.
+        """
+        # Get path to JSON file relative to this source file
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        json_path = os.path.join(src_dir, "data", "words_dictionary.json")
+
+        if not os.path.exists(json_path):
+            return None
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                word_dict = json.load(f)
+
+            # Filter words: only alphabetic, 3+ letters, uppercase
+            words = [
+                word.upper()
+                for word in word_dict.keys()
+                if word.isalpha() and len(word) >= 3
+            ]
+
+            # Sort by length (longer words first) for theme entries
+            words.sort(key=len, reverse=True)
+
+            print(f"   - Loaded {len(words)} words from words_dictionary.json")
+            return words
+
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            print(f"   - Warning: Could not load words_dictionary.json: {e}")
+            return None
+
+    def _get_hardcoded_word_list(self) -> List[str]:
+        """Get fallback hardcoded word list.
+
+        Returns:
+            List of common crossword-friendly English words.
+        """
         words = []
 
         # 3-letter words
