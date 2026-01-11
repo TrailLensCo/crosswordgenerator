@@ -7,7 +7,7 @@ This document provides a comprehensive prompt for expanding the crossword puzzle
 **Author:** Mark Buckaway
 **Date:** January 2026
 **Sample Topic:** Newfoundland culture
-**Sample Grid Size:** 10×10
+**Sample Grid Size:** 11×11
 
 ---
 
@@ -32,7 +32,7 @@ The generator must support all parameters via command-line arguments:
 ```bash
 python3 crossword_generator.py \
     --topic "Newfoundland culture" \
-    --size 10 \
+    --size 11 \
     --difficulty wednesday \
     --puzzle-type revealer \
     --author "Mark Buckaway" \
@@ -58,7 +58,7 @@ python3 crossword_generator.py --config puzzle_config.yaml
 
 puzzle:
   topic: "Newfoundland culture"
-  size: 10                          # Grid size (5, 7, 9, 10, 11, 13, 15, 21)
+  size: 11                          # Grid size (5, 7, 9, 11, 13, 15, 21)
   difficulty: wednesday             # monday, tuesday, wednesday, thursday, friday, saturday, sunday
   puzzle_type: revealer             # revealer, themeless, phrase_transformation, hidden_words, rebus, puns, add_a_letter, quote
   author: "Mark Buckaway"
@@ -119,7 +119,7 @@ metadata:
   date: "2026-01-11"
   difficulty: wednesday
   puzzle_type: revealer
-  size: 10
+  size: 11
   word_count: 42
   theme_entry_count: 4
   generation_stats:
@@ -131,21 +131,22 @@ metadata:
 
 grid:
   dimensions:
-    rows: 10
-    columns: 10
+    rows: 11
+    columns: 11
   # Grid representation: '.' = white cell, '#' = black cell
   # Letters filled in solution
   pattern: |
-    ..#...#...
-    ..........
-    ..#...#...
-    #.....#...
-    ..........
-    ..........
-    ...#.....#
-    ...#...#..
-    ..........
-    ...#...#..
+    ..#.....#..
+    ...........
+    ..#.....#..
+    ...........
+    #.....#...#
+    ...........
+    #...#.....#
+    ...........
+    ..#.....#..
+    ...........
+    ..#.....#..
 
   solution: |
     CO#DIN#NER
@@ -624,7 +625,7 @@ The initial word selection must incorporate all new configuration options.
    │   - topic: "Newfoundland culture"
    │   - difficulty: wednesday
    │   - puzzle_type: revealer
-   │   - size: 10
+   │   - size: 11
    │   - topic_aspects: auto-generated or user-provided
    ├─> Call AI with themed_word_list prompt
    ├─> Receive: categorized word list with clues
@@ -650,7 +651,7 @@ The initial word selection must incorporate all new configuration options.
 
 ---
 
-## Sample Configuration: Newfoundland Culture 10×10
+## Sample Configuration: Newfoundland Culture 11×11
 
 ### Complete Configuration File
 
@@ -660,7 +661,7 @@ The initial word selection must incorporate all new configuration options.
 
 puzzle:
   topic: "Newfoundland culture"
-  size: 10
+  size: 11
   difficulty: wednesday
   puzzle_type: revealer
   author: "Mark Buckaway"
@@ -708,7 +709,7 @@ validation:
 
 ### Expected Theme Entries
 
-For a 10×10 Newfoundland culture puzzle, expected theme entries might include:
+For an 11×11 Newfoundland culture puzzle, expected theme entries might include:
 
 | Entry | Length | Clue | Theme Connection |
 |-------|--------|------|------------------|
@@ -938,7 +939,7 @@ class AIWordGenerator:
 ```
 --config PATH           YAML configuration file
 --topic TEXT            Puzzle topic/theme
---size INT              Grid size (5,7,9,10,11,13,15,21)
+--size INT              Grid size (5,7,9,11,13,15,21)
 --difficulty LEVEL      monday/tuesday/wednesday/thursday/friday/saturday/sunday
 --puzzle-type TYPE      revealer/themeless/phrase_transformation/hidden_words/rebus/puns/add_a_letter/quote
 --author TEXT           Puzzle author name
@@ -955,12 +956,12 @@ class AIWordGenerator:
 
 ### Phase 5: Grid Generator Enhancement
 
-#### Task 5.1: Add 10×10 Grid Support (`grid_generator.py`)
+#### Task 5.1: Verify 11×11 Grid Support (`grid_generator.py`)
 
 **Modify:** `src/grid_generator.py`
 
 **Requirements:**
-- [ ] Add predefined valid patterns for 10×10 grids
+- [ ] Verify predefined valid patterns for 11×11 grids exist and work correctly
 - [ ] Ensure patterns meet NYT requirements
 - [ ] Test connectivity and symmetry
 - [ ] Add at least 3 pattern variations
@@ -981,18 +982,18 @@ class TestPuzzleConfig:
         """Test loading configuration from YAML file."""
         config = PuzzleConfig.from_yaml('test_config.yaml')
         assert config.topic == "Test Topic"
-        assert config.size == 10
+        assert config.size == 11
         assert config.max_ai_callbacks == 50
 
     def test_load_from_args(self):
         """Test loading configuration from command-line arguments."""
-        args = argparse.Namespace(topic="Test", size=10, ...)
+        args = argparse.Namespace(topic="Test", size=11, ...)
         config = PuzzleConfig.from_args(args)
         assert config.topic == "Test"
 
     def test_merge_configs(self):
         """Test CLI overrides YAML configuration."""
-        yaml_config = PuzzleConfig(topic="YAML Topic", size=10, ...)
+        yaml_config = PuzzleConfig(topic="YAML Topic", size=11, ...)
         cli_config = PuzzleConfig(topic="CLI Topic", size=None, ...)
         merged = PuzzleConfig.merge(yaml_config, cli_config)
         assert merged.topic == "CLI Topic"  # CLI wins
@@ -1001,7 +1002,7 @@ class TestPuzzleConfig:
     def test_validation_errors(self):
         """Test configuration validation catches errors."""
         with pytest.raises(ConfigValidationError):
-            PuzzleConfig(topic="", size=10, ...)  # Empty topic
+            PuzzleConfig(topic="", size=11, ...)  # Empty topic
 
         with pytest.raises(ConfigValidationError):
             PuzzleConfig(topic="Test", size=8, ...)  # Invalid size
@@ -1032,7 +1033,7 @@ class TestPromptLoader:
         system, user = template.render(
             topic="Newfoundland culture",
             difficulty="wednesday",
-            size=10
+            size=11
         )
         assert "Newfoundland culture" in user
         assert "wednesday" in system
@@ -1220,7 +1221,7 @@ class TestEndToEnd:
 
         config = PuzzleConfig(
             topic="Newfoundland culture",
-            size=10,
+            size=11,
             difficulty="wednesday",
             puzzle_type="revealer",
             max_ai_callbacks=50,
@@ -1296,7 +1297,7 @@ class TestPuzzleValidation:
         """Test NYT crossword rules are enforced."""
         config = PuzzleConfig(
             topic="Test",
-            size=10,
+            size=11,
             enforce_nyt_rules=True,
             ...
         )
@@ -1354,7 +1355,7 @@ crossword_generator/
 │   ├── yaml_importer.py        # NEW: YAML import
 │   ├── yaml_schema.py          # NEW: Schema definitions
 │   ├── models.py               # Data structures (unchanged)
-│   ├── grid_generator.py       # Grid patterns (add 10x10)
+│   ├── grid_generator.py       # Grid patterns (verify 11x11)
 │   ├── csp_solver.py           # CSP solver (updated)
 │   ├── ai_word_generator.py    # AI integration (updated)
 │   ├── validator.py            # Validation (unchanged)
@@ -1440,7 +1441,7 @@ pip install -r requirements-dev.txt
 - [ ] AI prompts load from external YAML file
 - [ ] AI callback limits are enforced
 - [ ] YAML intermediate format replaces markdown
-- [ ] 10×10 grid size supported
+- [ ] 11×11 grid size supported
 - [ ] All unit tests pass
 - [ ] End-to-end test generates valid puzzle
 
@@ -1468,7 +1469,7 @@ python3 src/crossword_generator.py --config config/sample_configs/newfoundland.y
 # Using command-line arguments
 python3 src/crossword_generator.py \
     --topic "Newfoundland culture" \
-    --size 10 \
+    --size 11 \
     --difficulty wednesday \
     --puzzle-type revealer \
     --author "Mark Buckaway" \
@@ -1487,6 +1488,7 @@ pytest tests/ -v --cov=src
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-11 | Mark Buckaway | Initial expanded prompt |
+| 1.1 | 2026-01-11 | Mark Buckaway | Changed grid size from 10×10 to 11×11 |
 
 ---
 
