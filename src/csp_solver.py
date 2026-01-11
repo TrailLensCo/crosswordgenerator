@@ -3,10 +3,11 @@ Constraint Satisfaction Problem solver for crossword puzzles.
 Uses AC-3 algorithm with backtracking and heuristics.
 """
 
+import sys
+import time
 from typing import List, Dict, Set, Optional, Tuple, Callable
 from copy import deepcopy
 from collections import defaultdict
-import random
 
 from models import Grid, WordSlot, Direction, matches_pattern, ThemedWord
 
@@ -14,63 +15,94 @@ from models import Grid, WordSlot, Direction, matches_pattern, ThemedWord
 class CrosswordCSP:
     """
     CSP solver for crossword puzzles.
-    
+
     Variables: WordSlots (each slot where a word goes)
     Domains: Possible words for each slot
-    Constraints: 
+    Constraints:
         - Overlapping slots must have matching letters
         - All words must be different
     """
-    
+
     def __init__(
-        self, 
-        grid: Grid, 
+        self,
+        grid: Grid,
         word_list: List[str],
-        word_generator: Optional[Callable[[str, int], List[str]]] = None
+        word_generator: Optional[Callable[[str, int], List[str]]] = None,
+        verbose: bool = True
     ):
         """
         Initialize the CSP solver.
-        
+
         Args:
             grid: The crossword grid with black squares placed
             word_list: Initial list of available words
             word_generator: Optional function to generate words matching a pattern
                            Signature: (pattern: str, count: int) -> List[str]
                            This is called when a slot has no valid words.
+            verbose: Whether to print progress information
         """
         self.grid = grid
         self.word_generator = word_generator
-        
+        self.verbose = verbose
+        self._last_progress_time = time.time()
+        self._progress_interval = 2.0  # Print progress every 2 seconds
+
         # Find all word slots
         self.variables = grid.find_word_slots()
-        
+
         # Build word lists by length
         self.words_by_length: Dict[int, Set[str]] = defaultdict(set)
         for word in word_list:
             word = word.upper().strip()
             if len(word) >= 3:
                 self.words_by_length[len(word)].add(word)
-        
+
         # Initialize domains (possible words for each slot)
         self.domains: Dict[WordSlot, Set[str]] = {}
         for slot in self.variables:
             self.domains[slot] = set(self.words_by_length[slot.length])
-        
+
         # Build constraint graph (which slots overlap)
         self.neighbors: Dict[WordSlot, List[Tuple[WordSlot, int, int]]] = defaultdict(list)
         self._build_constraint_graph()
-        
+
         # Track used words (for uniqueness constraint)
         self.used_words: Set[str] = set()
-        
+
         # Track statistics
         self.stats = {
             "backtracks": 0,
             "ac3_revisions": 0,
             "words_requested": 0,
-            "ai_words_added": 0
+            "ai_words_added": 0,
+            "assignments_tried": 0,
+            "start_time": time.time()
         }
-    
+
+        if self.verbose:
+            self._log(f"CSP initialized: {len(self.variables)} slots, "
+                     f"{sum(len(d) for d in self.domains.values())} total domain values")
+
+    def _log(self, message: str):
+        """Print a log message with timestamp."""
+        if self.verbose:
+            elapsed = time.time() - self.stats["start_time"]
+            print(f"   [{elapsed:6.1f}s] {message}")
+            sys.stdout.flush()
+
+    def _maybe_log_progress(self, assignment: Dict[WordSlot, str]):
+        """Log progress periodically during search."""
+        now = time.time()
+        if now - self._last_progress_time >= self._progress_interval:
+            self._last_progress_time = now
+            filled = len(assignment)
+            total = len(self.variables)
+            pct = (filled / total) * 100 if total > 0 else 0
+            bt = self.stats["backtracks"]
+            tried = self.stats["assignments_tried"]
+            self._log(f"Progress: {filled}/{total} slots ({pct:.0f}%) | "
+                     f"Tried: {tried} | Backtracks: {bt}")
+
     def _build_constraint_graph(self):
         """Build graph of overlapping word slots."""
         for i, slot1 in enumerate(self.variables):
@@ -134,13 +166,14 @@ class CrosswordCSP:
         
         return revised
     
-    def ac3(self, arcs: Optional[List[Tuple[WordSlot, WordSlot]]] = None) -> bool:
+    def ac3(self, arcs: Optional[List[Tuple[WordSlot, WordSlot]]] = None, log_initial: bool = False) -> bool:
         """
         AC-3 algorithm to enforce arc consistency.
-        
+
         Args:
             arcs: Initial queue of arcs to process. If None, use all arcs.
-            
+            log_initial: Whether to log initial AC-3 progress
+
         Returns:
             True if arc consistency achieved, False if domain became empty.
         """
@@ -150,42 +183,68 @@ class CrosswordCSP:
             for slot in self.variables:
                 for neighbor, _, _ in self.neighbors[slot]:
                     queue.append((slot, neighbor))
+            if log_initial and self.verbose:
+                self._log(f"AC-3 starting with {len(queue)} arcs")
         else:
             queue = list(arcs)
-        
+
+        iterations = 0
+        last_log = time.time()
+
         while queue:
             slot_x, slot_y = queue.pop(0)
-            
+            iterations += 1
+
+            # Log progress every 2 seconds during initial AC-3
+            if log_initial and self.verbose and time.time() - last_log > 2.0:
+                last_log = time.time()
+                total_domain = sum(len(d) for d in self.domains.values())
+                self._log(f"AC-3: {len(queue)} arcs remaining, "
+                         f"{total_domain} total domain values, "
+                         f"{self.stats['ac3_revisions']} revisions")
+
             if self.revise(slot_x, slot_y):
                 if len(self.domains[slot_x]) == 0:
                     # Try to get more words from AI if available
                     if self.word_generator:
                         pattern = slot_x.get_pattern(self.grid)
                         self.stats["words_requested"] += 1
-                        
+
+                        if self.verbose:
+                            self._log(f"Empty domain for {slot_x.direction.name} "
+                                     f"{slot_x.number} ({slot_x.length} letters), "
+                                     f"pattern: {pattern}")
+
                         new_words = self.word_generator(pattern, 20)
-                        
+
                         if new_words:
                             # Filter to words not already used
-                            valid_new = [w for w in new_words 
+                            valid_new = [w for w in new_words
                                         if w.upper() not in self.used_words]
-                            
+
                             if valid_new:
                                 self.domains[slot_x] = set(valid_new)
                                 self.words_by_length[slot_x.length].update(valid_new)
                                 self.stats["ai_words_added"] += len(valid_new)
+                                if self.verbose:
+                                    self._log(f"AI provided {len(valid_new)} new words")
                             else:
                                 return False
                         else:
                             return False
                     else:
                         return False
-                
+
                 # Add arcs from neighbors back to queue
                 for neighbor, _, _ in self.neighbors[slot_x]:
                     if neighbor != slot_y:
                         queue.append((neighbor, slot_x))
-        
+
+        if log_initial and self.verbose:
+            total_domain = sum(len(d) for d in self.domains.values())
+            self._log(f"AC-3 complete: {iterations} iterations, "
+                     f"{total_domain} domain values remaining")
+
         return True
     
     def select_unassigned_variable(
@@ -251,36 +310,45 @@ class CrosswordCSP:
         return True
     
     def backtrack(
-        self, 
+        self,
         assignment: Optional[Dict[WordSlot, str]] = None,
         use_inference: bool = True
     ) -> Optional[Dict[WordSlot, str]]:
         """
         Backtracking search with optional AC-3 inference.
-        
+
         Returns complete assignment if solution found, None otherwise.
         """
         if assignment is None:
             assignment = {}
-        
+
+        # Log progress periodically
+        self._maybe_log_progress(assignment)
+
         # Check if complete
         if len(assignment) == len(self.variables):
+            if self.verbose:
+                self._log(f"Solution found! All {len(self.variables)} slots filled.")
             return assignment
-        
+
         # Select next variable
         slot = self.select_unassigned_variable(assignment)
         if slot is None:
             return assignment
-        
+
+        domain_size = len(self.domains[slot])
+
         # Try each value in domain
         for word in self.order_domain_values(slot, assignment):
+            self.stats["assignments_tried"] += 1
+
             if self.is_consistent(slot, word, assignment):
                 # Make assignment
                 assignment[slot] = word
-                
+
                 # Save domains for backtracking
                 saved_domains = deepcopy(self.domains) if use_inference else None
-                
+
                 # Apply inference (AC-3) if enabled
                 if use_inference:
                     self.domains[slot] = {word}
@@ -289,39 +357,72 @@ class CrosswordCSP:
                     inference_ok = self.ac3(arcs)
                 else:
                     inference_ok = True
-                
+
                 if inference_ok:
                     result = self.backtrack(assignment, use_inference)
                     if result is not None:
                         return result
-                
+
                 # Backtrack
                 self.stats["backtracks"] += 1
                 del assignment[slot]
-                
+
                 if use_inference:
                     self.domains = saved_domains
-        
+
         return None
     
     def solve(self, use_inference: bool = True) -> Optional[Dict[WordSlot, str]]:
         """
         Solve the crossword puzzle.
-        
+
         Args:
             use_inference: Whether to use AC-3 inference during search
-            
+
         Returns:
             Dictionary mapping WordSlots to words, or None if no solution
         """
+        if self.verbose:
+            self._log("Starting solve...")
+            self._log("Enforcing node consistency...")
+
         # Initial constraint propagation
         self.enforce_node_consistency()
-        
-        if not self.ac3():
+
+        if self.verbose:
+            total_domain = sum(len(d) for d in self.domains.values())
+            self._log(f"After node consistency: {total_domain} domain values")
+            self._log("Running initial AC-3...")
+
+        if not self.ac3(log_initial=True):
+            if self.verbose:
+                self._log("AC-3 failed - no solution possible")
             return None
-        
+
+        if self.verbose:
+            total_domain = sum(len(d) for d in self.domains.values())
+            self._log(f"Starting backtracking search...")
+            # Show domain sizes for each slot
+            for slot in sorted(self.variables, key=lambda s: len(self.domains[s])):
+                d_size = len(self.domains[slot])
+                if d_size < 100:  # Only show small domains
+                    self._log(f"  {slot.direction.name} {slot.number} "
+                             f"({slot.length} letters): {d_size} candidates")
+
         # Run backtracking search
-        return self.backtrack(use_inference=use_inference)
+        result = self.backtrack(use_inference=use_inference)
+
+        if self.verbose:
+            elapsed = time.time() - self.stats["start_time"]
+            if result:
+                self._log(f"Solved in {elapsed:.1f}s with "
+                         f"{self.stats['backtracks']} backtracks, "
+                         f"{self.stats['assignments_tried']} assignments tried")
+            else:
+                self._log(f"No solution found after {elapsed:.1f}s, "
+                         f"{self.stats['backtracks']} backtracks")
+
+        return result
     
     def apply_solution(self, solution: Dict[WordSlot, str]):
         """Apply a solution to the grid."""
