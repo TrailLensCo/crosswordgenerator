@@ -85,7 +85,7 @@ prompts:
     description: "Finds words that match a specific letter pattern during grid filling"
     max_calls: 25
 
-    model: "claude-haiku-3-5-20241022"
+    model: "claude-haiku-4-5-20251001"
     temperature: 0.3
     max_tokens: 1024
 
