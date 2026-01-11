@@ -392,7 +392,7 @@ Respond with ONLY a JSON array, no other text:
             system_prompt, user_prompt = self._build_pattern_prompts(
                 pattern, length, theme, used_words, count
             )
-            model = "claude-haiku-3-5-20241022"  # Use fast model
+            model = "claude-haiku-4-5-20251001"  # Use fast model
 
         response = self._make_request(
             'pattern_word_generation',
