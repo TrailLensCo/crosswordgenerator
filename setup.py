@@ -28,10 +28,18 @@ setup(
     url="https://github.com/TrailLensCo/crosswordgenerator",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.13",
+    python_requires=">=3.10",
     install_requires=[
-        "anthropic>=0.39.0",
+        "anthropic>=0.75.0",
+        "pyyaml>=6.0.2",
     ],
+    package_data={
+        "": [
+            "data/*.json",
+            "data/*.txt",
+        ],
+    },
+    include_package_data=True,
     extras_require={
         "dev": [
             "pytest>=7.0.0",
@@ -48,6 +56,10 @@ setup(
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Topic :: Games/Entertainment :: Puzzle Games",
     ],
 )

@@ -1,4 +1,35 @@
-# Crossword Generator Dependencies
+# ==============================================================================
+# Crossword Generator - Python Dependencies
+# ==============================================================================
+#
+# Install all dependencies:
+#   pip install -r requirements.txt
+#
+# Or use the setup script:
+#   ./scripts/setup-env.sh
+#
+# ==============================================================================
 
-# AI word generation (optional but recommended)
-anthropic>=0.39.0
+# ------------------------------------------------------------------------------
+# Optional Dependencies (Recommended)
+# ------------------------------------------------------------------------------
+
+# AI word generation and clue creation (Claude API)
+# Without this, the generator will use the fallback word list only
+anthropic>=0.75.0
+
+# YAML configuration file support
+# Without this, you must use command-line arguments only
+pyyaml>=6.0.2
+
+# ------------------------------------------------------------------------------
+# Development Dependencies (Optional)
+# ------------------------------------------------------------------------------
+
+# Uncomment these if you're developing/testing the codebase:
+
+# pytest>=8.0.0          # Testing framework
+# pytest-cov>=4.1.0      # Test coverage
+# black>=24.0.0          # Code formatting
+# flake8>=7.0.0          # Code linting
+# mypy>=1.8.0            # Type checking
