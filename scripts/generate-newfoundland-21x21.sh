@@ -37,6 +37,24 @@ if [ ! -d "$SRC_DIR" ]; then
     exit 1
 fi
 
+# Activate virtual environment if it exists
+VENV_DIR="$PROJECT_ROOT/.venv"
+if [ -d "$VENV_DIR" ]; then
+    echo "🔧 Activating virtual environment..."
+    # shellcheck disable=SC1091
+    if source "$VENV_DIR/bin/activate"; then
+        echo "   ✓ Virtual environment activated"
+    else
+        echo "   ⚠️  Warning: Failed to activate virtual environment"
+        echo "   Continuing with system Python..."
+    fi
+    echo ""
+else
+    echo "ℹ️  Virtual environment not found at $VENV_DIR"
+    echo "   Using system Python. Run './scripts/setup-env.sh' to create venv."
+    echo ""
+fi
+
 # Check if API key is available
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
     echo "⚠️  Warning: ANTHROPIC_API_KEY not set in environment"
