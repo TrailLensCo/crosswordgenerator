@@ -44,10 +44,22 @@ prompts:
       - Maximum word length: {{max_word_length}} letters
 
       CRITICAL - Word Length Distribution:
-      Generate a natural mix that favors shorter words for better grid solvability:
-      - MOST words (60-65%) should be SHORT: 3-7 letters (fill words)
-      - SOME words (25-30%) should be MEDIUM: 8-12 letters (standard entries)
-      - FEW words (10%) should be LONG: up to {{max_word_length}} letters (theme entries)
+      Generate a natural mix that favors shorter words for better grid solvability.
+      The exact distribution depends on grid size and max_word_length={{max_word_length}}:
+
+      For grids with max_word_length <= 7 (small grids like 5x5, 7x7):
+        - 70-75% should be 3-5 letters (short fill)
+        - 25-30% should be 6-{{max_word_length}} letters (longer entries)
+
+      For grids with max_word_length 8-11 (medium grids like 9x9, 11x11):
+        - 60-65% should be 3-7 letters (short fill)
+        - 30-35% should be 8-{{max_word_length}} letters (medium/long entries)
+        - A few at maximum length for potential theme entries
+
+      For grids with max_word_length >= 13 (large grids like 15x15, 21x21):
+        - 60-65% should be SHORT: 3-7 letters (fill words)
+        - 25-30% should be MEDIUM: 8-12 letters (standard entries)
+        - 10% should be LONG: 13-{{max_word_length}} letters (theme entries)
 
       This distribution ensures the puzzle is solvable. Ultra-long words are rare in
       English and create over-constrained grids. Focus on shorter, crossword-friendly words.
@@ -62,8 +74,9 @@ prompts:
       Focus on these aspects of {{topic}}:
       {{topic_aspects}}
 
-      IMPORTANT: Include 4-6 potential theme entries (longer answers, 7+ letters)
-      that could serve as the puzzle's featured answers.
+      IMPORTANT: Include 4-6 potential theme entries close to the maximum word length
+      ({{max_word_length}} letters or slightly shorter) that could serve as the puzzle's
+      featured answers. These should be in the longest length category for this grid size.
 
     output_format:
       type: yaml
