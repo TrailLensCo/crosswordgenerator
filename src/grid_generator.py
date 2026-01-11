@@ -157,20 +157,31 @@ class GridGenerator:
         patterns = self._get_validated_patterns()
 
         if not patterns:
+            self.logger.warning(f"   No valid predefined patterns for {self.size}x{self.size} grid")
+            self.logger.info("   Attempting to generate random valid pattern...")
             # No valid predefined pattern, try to generate one
             grid = self._generate_random_valid_pattern()
             if grid and self._validate_grid(grid):
+                self.logger.info("   ✓ Successfully generated random pattern")
+                self._log_grid_stats(grid)
                 return grid
             # Last resort: return empty grid
+            self.logger.warning("   Failed to generate valid pattern, using empty grid")
             return Grid(size=self.size)
 
         # Select pattern
-        pattern = patterns[pattern_index % len(patterns)]
+        self.logger.info(f"   Available patterns for {self.size}x{self.size}: {len(patterns)}")
+        actual_index = pattern_index % len(patterns)
+        self.logger.info(f"   Selected pattern {actual_index + 1} of {len(patterns)}")
+        pattern = patterns[actual_index]
 
         # Create grid and apply pattern
         grid = Grid(size=self.size)
         for row, col in pattern:
             grid.set_block(row, col)  # Automatically applies symmetry
+
+        # Log grid statistics
+        self._log_grid_stats(grid)
 
         return grid
 
@@ -384,6 +395,85 @@ class GridGenerator:
             return False
 
         return True
+
+    def _log_grid_stats(self, grid: Grid) -> None:
+        """Log detailed statistics about the generated grid."""
+        # Count black squares
+        black_count = sum(
+            1 for row in range(self.size)
+            for col in range(self.size)
+            if grid.get_cell(row, col).is_block()
+        )
+        black_ratio = black_count / (self.size * self.size)
+
+        self.logger.info(f"   Grid size: {self.size}x{self.size}")
+        self.logger.info(f"   Black squares: {black_count} ({black_ratio:.1%})")
+
+        # Find and count word slots
+        slots = grid.find_word_slots()
+        across_slots = [s for s in slots if s.direction == Direction.ACROSS]
+        down_slots = [s for s in slots if s.direction == Direction.DOWN]
+
+        self.logger.info(f"   Total word slots: {len(slots)} ({len(across_slots)} across, {len(down_slots)} down)")
+
+        # Word length distribution
+        lengths = [s.length for s in slots]
+        length_counts = {}
+        for length in lengths:
+            length_counts[length] = length_counts.get(length, 0) + 1
+
+        # Group lengths for cleaner output
+        short_words = sum(count for length, count in length_counts.items() if 3 <= length <= 5)
+        medium_words = sum(count for length, count in length_counts.items() if 6 <= length <= 10)
+        long_words = sum(count for length, count in length_counts.items() if 11 <= length <= 15)
+        ultra_long = sum(count for length, count in length_counts.items() if length > 15)
+
+        self.logger.info(f"   Word length distribution:")
+        self.logger.info(f"      3-5 letters: {short_words} slots")
+        self.logger.info(f"      6-10 letters: {medium_words} slots")
+        if long_words > 0:
+            self.logger.info(f"      11-15 letters: {long_words} slots")
+        if ultra_long > 0:
+            self.logger.warning(f"      16+ letters: {ultra_long} slots (may be difficult to fill)")
+
+        # Log max/min word lengths
+        min_length = min(lengths) if lengths else 0
+        max_length = max(lengths) if lengths else 0
+        self.logger.debug(f"   Word length range: {min_length}-{max_length} letters")
+
+        # Log max_word_length constraint if set
+        if self.max_word_length is not None:
+            over_limit = [s.length for s in slots if s.length > self.max_word_length]
+            if over_limit:
+                self.logger.warning(
+                    f"   ⚠️  {len(over_limit)} slots exceed max_word_length={self.max_word_length}: "
+                    f"lengths {sorted(set(over_limit))}"
+                )
+            else:
+                self.logger.info(f"   ✓ All slots within max_word_length={self.max_word_length}")
+
+        # Validate connectivity and symmetry
+        if grid.is_connected():
+            self.logger.debug("   ✓ Grid is fully connected")
+        else:
+            self.logger.error("   ✗ Grid has disconnected regions")
+
+        # Check symmetry
+        is_symmetric = True
+        for row in range(self.size):
+            for col in range(self.size):
+                cell = grid.get_cell(row, col)
+                sym_cell = grid.get_cell(self.size - 1 - row, self.size - 1 - col)
+                if cell.is_block() != sym_cell.is_block():
+                    is_symmetric = False
+                    break
+            if not is_symmetric:
+                break
+
+        if is_symmetric:
+            self.logger.debug("   ✓ Grid has 180° rotational symmetry")
+        else:
+            self.logger.error("   ✗ Grid lacks rotational symmetry")
 
     def list_available_patterns(self) -> int:
         """Return number of validated patterns for this size."""
