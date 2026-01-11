@@ -81,9 +81,11 @@ echo "════════════════════════�
 echo ""
 
 # Run with --analyze-log to automatically generate AI report
+# Use --require-ai to force AI usage and avoid fallback to base word list
 python3 crossword_generator.py \
     --config "$CONFIG_FILE" \
     --analyze-log \
+    --require-ai \
     --verbose
 
 EXIT_CODE=$?
