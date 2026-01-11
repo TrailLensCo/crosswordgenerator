@@ -229,6 +229,54 @@ def get_model(config: PuzzleConfig) -> str:
     return DEFAULT_MODEL
 ```
 
+### Per-Prompt Model Override
+
+Each prompt in `prompts.yaml` can specify its own model, temperature, and max_tokens. This allows optimization for different use cases:
+
+| Prompt Type | Recommended Model | Reason |
+|-------------|-------------------|--------|
+| `themed_word_list` | Default (Sonnet) | Balance of quality and speed |
+| `pattern_word_generation` | Haiku | Called frequently; speed critical |
+| `clue_generation_batch` | Default (Sonnet) | Creative writing benefits from quality |
+| `theme_development` | Sonnet or Opus | Critical for puzzle quality |
+| `validation_check` | Default (Sonnet) | Thorough analysis needed |
+
+**Model Resolution Order (per prompt):**
+
+```
+1. Prompt-specific model (prompts.yaml → prompts.<name>.model)
+       ↓ (if null)
+2. Prompt defaults (prompts.yaml → model_defaults.model)
+       ↓ (if null)
+3. Main config model (puzzle_config.yaml → ai.model)
+       ↓ (if null)
+4. Environment variable (ANTHROPIC_MODEL)
+       ↓ (if not set)
+5. Hardcoded default (claude-sonnet-4-20250514)
+```
+
+**Implementation:**
+```python
+def get_model_for_prompt(
+    prompt_config: dict,
+    prompt_defaults: dict,
+    main_config: PuzzleConfig
+) -> str:
+    """
+    Resolve model for a specific prompt with fallback chain.
+    """
+    # Priority 1: Prompt-specific model
+    if prompt_config.get('model'):
+        return prompt_config['model']
+
+    # Priority 2: Prompt defaults
+    if prompt_defaults.get('model'):
+        return prompt_defaults['model']
+
+    # Priority 3-5: Main config resolution (uses get_model())
+    return get_model(main_config)
+```
+
 ### Word Quality Threshold
 
 The `word_quality_threshold` (0.0 to 1.0) determines minimum acceptable word quality based on:
@@ -450,7 +498,10 @@ All AI prompts must be externalized to a YAML configuration file, enabling versi
 # Variables in {{double_braces}} are substituted at runtime
 
 version: "1.0"
+
+# Default settings applied to all prompts unless overridden
 model_defaults:
+  model: null                    # Use main config default if null
   temperature: 0.7
   max_tokens: 4096
 
@@ -463,6 +514,12 @@ prompts:
     name: "Generate Themed Word List"
     description: "Creates initial vocabulary list related to the puzzle topic"
     max_calls: 3  # Maximum times this prompt can be called per puzzle
+
+    # Model override for this specific prompt (optional)
+    # If null or omitted, uses model_defaults.model, then main config ai.model
+    model: null  # Example: "claude-sonnet-4-20250514"
+    temperature: 0.7
+    max_tokens: 4096
 
     system: |
       You are an expert crossword puzzle constructor with deep knowledge of
@@ -526,6 +583,11 @@ prompts:
     description: "Finds words that match a specific letter pattern during grid filling"
     max_calls: 25  # Strict limit to prevent runaway token usage
 
+    # Use faster model for pattern matching (called frequently)
+    model: "claude-haiku-3-5-20241022"  # Fast responses for iterative solving
+    temperature: 0.3  # Lower temperature for more consistent results
+    max_tokens: 1024  # Smaller response needed
+
     system: |
       You are a crossword puzzle word expert. Given a letter pattern,
       generate valid English words that match exactly. Focus on:
@@ -575,6 +637,11 @@ prompts:
     name: "Generate Clues for Words"
     description: "Creates crossword-style clues for a batch of words"
     max_calls: 5  # Batch processing reduces calls needed
+
+    # Use default model (good balance for creative clue writing)
+    model: null  # Uses main config default
+    temperature: 0.8  # Higher creativity for clue variety
+    max_tokens: 4096
 
     system: |
       You are an expert crossword clue writer for {{difficulty}} difficulty
@@ -627,6 +694,11 @@ prompts:
     name: "Develop Puzzle Theme"
     description: "Creates cohesive theme with revealer and themed entries"
     max_calls: 2
+
+    # Use highest quality model for theme development (critical for puzzle quality)
+    model: "claude-sonnet-4-20250514"  # Or use opus for competition-quality themes
+    temperature: 0.9  # High creativity for unique themes
+    max_tokens: 4096
 
     system: |
       You are a professional crossword constructor specializing in themed
@@ -738,6 +810,11 @@ prompts:
     name: "Validate Puzzle Quality"
     description: "Reviews completed puzzle for quality and solvability"
     max_calls: 1
+
+    # Use capable model for thorough validation
+    model: null  # Uses main config default
+    temperature: 0.3  # Low temperature for consistent evaluation
+    max_tokens: 2048
 
     system: |
       You are a crossword puzzle editor reviewing submissions. Evaluate:
@@ -1781,6 +1858,7 @@ pytest tests/ -v --cov=src
 | 1.2 | 2026-01-11 | Mark Buckaway | Resolved ambiguities: added theme type requirements, word quality criteria, base word list source (downloaded/cached), copyright header requirements, SVG output clarifications (one page per doc), fixed test assertion |
 | 1.3 | 2026-01-11 | Mark Buckaway | Added reference to PLACEMENT_ALGORITHM.md for detailed word placement algorithm specification; updated CSP Solver task requirements |
 | 1.4 | 2026-01-11 | Mark Buckaway | Added API Key Discovery section with multi-source fallback (CLI, config, env var, ~/.claude/, ~/.anthropic/); added Model Selection section with env var support and use case recommendations |
+| 1.5 | 2026-01-11 | Mark Buckaway | Added per-prompt model override in prompts.yaml; each prompt can specify model, temperature, max_tokens with fallback to defaults |
 
 ---
 
