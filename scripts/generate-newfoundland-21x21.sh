@@ -97,7 +97,7 @@ echo ""
 if [ $EXIT_CODE -eq 0 ]; then
     echo "✅ Generation complete!"
     echo ""
-    echo "Output files are in: ./output/newfoundland-21x21/"
+    echo "Output files are in: $PROJECT_ROOT/output/newfoundland-21x21/"
     echo ""
     echo "Generated files:"
     echo "  • Puzzle grid (blank): newfoundland_culture__21x21_puzzle.svg"
@@ -111,6 +111,6 @@ if [ $EXIT_CODE -eq 0 ]; then
 else
     echo "❌ Generation failed with exit code $EXIT_CODE"
     echo ""
-    echo "Check the log file in ./output/newfoundland-21x21/ for details."
+    echo "Check the log file in $PROJECT_ROOT/output/newfoundland-21x21/ for details."
     exit $EXIT_CODE
 fi

@@ -96,7 +96,8 @@ generation:
 output:
   # Directory where output files will be saved
   # Created automatically if it doesn't exist
-  directory: "./output/newfoundland-21x21"
+  # Path is relative to src/ directory (where generator runs)
+  directory: "../output/newfoundland-21x21"
 
   # Output file formats to generate
   # Valid formats:
