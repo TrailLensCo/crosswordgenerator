@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 TrailLensCo
+# All rights reserved.
+#
+# This file is proprietary and confidential.
+# Unauthorized copying, distribution, or use of this file,
+# via any medium, is strictly prohibited without the express
+# written permission of TrailLensCo.
+
 """
 AI-Powered Crossword Generator
 
@@ -7,21 +15,23 @@ Generates NYT-style crossword puzzles using:
 2. CSP solver with AC-3 for grid filling
 3. Validation to ensure puzzle is completeable
 4. Multi-page SVG/HTML output
+5. YAML intermediate format for puzzle data
 
 Usage:
-    # With API key in environment:
-    export ANTHROPIC_API_KEY='your-key'
-    python crossword_generator.py --topic "Space Exploration" --size 5
-    
+    # With YAML configuration:
+    python crossword_generator.py --config config/sample_configs/newfoundland.yaml
+
+    # With command-line arguments:
+    python crossword_generator.py --topic "Space Exploration" --size 11
+
     # Or pass API key directly:
     python crossword_generator.py --topic "Movies" --api-key "your-key"
 """
 
 import os
 import sys
-import argparse
+import time
 from typing import List, Dict, Optional
-from dataclasses import dataclass
 from copy import deepcopy
 
 # Add src to path
@@ -32,25 +42,35 @@ from csp_solver import CrosswordCSP
 from validator import validate_puzzle, ValidationResult
 from grid_generator import GridGenerator
 from page_renderer import CrosswordPageRenderer, CrosswordData
-from ai_word_generator import AIWordGenerator, WordWithClue, create_pattern_word_generator
+from ai_word_generator import (
+    AIWordGenerator, WordWithClue, create_pattern_word_generator
+)
+from config import (
+    PuzzleConfig, create_argument_parser, load_config,
+    discover_api_key, get_model, ConfigValidationError
+)
+from ai_limiter import AICallbackLimiter
 
+# Try to import optional modules
+try:
+    from prompt_loader import PromptLoader
+    HAS_PROMPT_LOADER = True
+except ImportError:
+    HAS_PROMPT_LOADER = False
+    PromptLoader = None
 
-@dataclass
-class GeneratorConfig:
-    """Configuration for crossword generation."""
-    size: int = 5
-    theme: str = "General"
-    difficulty: str = "medium"
-    author: str = "AI Generator"
-    api_key: Optional[str] = None
-    max_attempts: int = 3
-    output_dir: str = "./output"
+try:
+    from yaml_exporter import YAMLExporter
+    HAS_YAML_EXPORTER = True
+except ImportError:
+    HAS_YAML_EXPORTER = False
+    YAMLExporter = None
 
 
 class CrosswordGenerator:
     """
     Complete crossword puzzle generator with AI integration.
-    
+
     Workflow:
     1. Generate themed word list using AI
     2. Create valid grid pattern
@@ -59,135 +79,196 @@ class CrosswordGenerator:
     5. Validate fillability
     6. Generate clues using AI
     7. Render to multi-page output
+    8. Export YAML intermediate format
     """
-    
-    def __init__(self, config: GeneratorConfig):
+
+    def __init__(self, config: PuzzleConfig):
+        """
+        Initialize the crossword generator.
+
+        Args:
+            config: PuzzleConfig instance with all settings
+        """
         self.config = config
-        self.ai = AIWordGenerator(api_key=config.api_key)
+        self.start_time = time.time()
+
+        # Initialize AI limiter
+        self.limiter = AICallbackLimiter(
+            max_total=config.generation.max_ai_callbacks,
+            limits=config.generation.limits,
+        )
+
+        # Initialize prompt loader if available
+        self.prompt_loader = None
+        if HAS_PROMPT_LOADER:
+            prompt_config_path = config.ai.prompt_config
+            if os.path.exists(prompt_config_path):
+                try:
+                    self.prompt_loader = PromptLoader(prompt_config_path)
+                except Exception as e:
+                    print(f"Warning: Could not load prompts: {e}")
+
+        # Discover API key
+        api_key = discover_api_key(config)
+        model = get_model(config)
+
+        # Initialize AI word generator
+        self.ai = AIWordGenerator(
+            api_key=api_key,
+            model=model,
+            limiter=self.limiter,
+            prompt_loader=self.prompt_loader,
+        )
+
         self.word_list: List[str] = []
         self.themed_words: Dict[str, WordWithClue] = {}
         self.solution: Optional[Dict[WordSlot, str]] = None
-        
+        self._csp_stats: Dict = {}
+
     def generate(self) -> Optional[Dict[str, str]]:
         """
         Generate a complete crossword puzzle.
-        
+
         Returns:
             Dict of output file paths, or None if generation failed
         """
         print("=" * 60)
-        print(f"🎯 CROSSWORD GENERATOR")
+        print("CROSSWORD GENERATOR")
         print("=" * 60)
-        print(f"   Theme: {self.config.theme}")
+        print(f"   Theme: {self.config.topic}")
         print(f"   Size: {self.config.size}x{self.config.size}")
+        print(f"   Difficulty: {self.config.difficulty}")
+        print(f"   Puzzle Type: {self.config.puzzle_type}")
         print(f"   AI Available: {self.ai.is_available()}")
         print()
-        
+
         # Step 1: Generate word list
-        print("📝 Step 1: Building word list...")
+        print("Step 1: Building word list...")
         self._build_word_list()
-        print(f"   ✓ {len(self.word_list)} words available")
-        print(f"   ✓ {len(self.themed_words)} themed words with clues")
+        print(f"   - {len(self.word_list)} words available")
+        print(f"   - {len(self.themed_words)} themed words with clues")
         print()
-        
+
         # Step 2: Create and validate grid
-        print("🔲 Step 2: Creating grid...")
+        print("Step 2: Creating grid...")
         grid = self._create_grid()
         if grid is None:
-            print("   ❌ Failed to create valid grid")
+            print("   X Failed to create valid grid")
             return None
-        print(f"   ✓ Grid created")
-        
+        print("   - Grid created")
+
         # Step 3: Validate structure
-        print("\n🔍 Step 3: Validating structure...")
-        validation = validate_puzzle(grid, self.word_list, check_fillability=False)
+        print("\nStep 3: Validating structure...")
+        validation = validate_puzzle(
+            grid, self.word_list, check_fillability=False
+        )
         if not validation.valid:
-            print(f"   ❌ Invalid structure:")
+            print("   X Invalid structure:")
             for error in validation.errors:
                 print(f"      - {error}")
             return None
-        print(f"   ✓ Structure valid")
-        print(f"   ✓ {validation.stats['total_words']} word slots")
+        print("   - Structure valid")
+        print(f"   - {validation.stats['total_words']} word slots")
         print()
-        
+
         # Step 4: Fill grid using CSP
-        print("🧩 Step 4: Filling grid with CSP solver...")
+        print("Step 4: Filling grid with CSP solver...")
         filled_grid, solution = self._fill_grid(grid)
         if solution is None:
-            print("   ❌ Could not fill grid")
+            print("   X Could not fill grid")
             return None
-        print(f"   ✓ Grid filled successfully!")
+        print("   - Grid filled successfully!")
         print()
-        
+
         # Step 5: Validate fillability
-        print("✅ Step 5: Validating solution...")
-        # Solution is already found, just verify
-        print(f"   ✓ All {len(solution)} words placed")
-        print(f"   ✓ Puzzle is completeable")
+        print("Step 5: Validating solution...")
+        print(f"   - All {len(solution)} words placed")
+        print("   - Puzzle is completeable")
         print()
-        
+
         # Step 6: Generate clues
-        print("💡 Step 6: Generating clues...")
+        print("Step 6: Generating clues...")
         clues = self._generate_clues(solution)
-        print(f"   ✓ {len(clues['across'])} across clues")
-        print(f"   ✓ {len(clues['down'])} down clues")
+        print(f"   - {len(clues['across'])} across clues")
+        print(f"   - {len(clues['down'])} down clues")
         print()
-        
+
         # Step 7: Render output
-        print("🖼️  Step 7: Rendering output...")
+        print("Step 7: Rendering output...")
         output_files = self._render_output(filled_grid, solution, clues)
-        print(f"   ✓ Generated {len(output_files)} files")
+        print(f"   - Generated {len(output_files)} files")
         print()
-        
+
+        # Step 8: Export YAML intermediate
+        if 'yaml_intermediate' in self.config.output.formats and HAS_YAML_EXPORTER:
+            print("Step 8: Exporting YAML intermediate...")
+            yaml_path = self._export_yaml(filled_grid, solution, clues)
+            if yaml_path:
+                output_files['yaml_intermediate'] = yaml_path
+                print(f"   - Exported to {yaml_path}")
+            print()
+
         # Summary
+        elapsed = time.time() - self.start_time
         print("=" * 60)
-        print("✨ GENERATION COMPLETE!")
+        print("GENERATION COMPLETE!")
         print("=" * 60)
-        print("\n📁 Output files:")
+        print("\nOutput files:")
         for name, path in output_files.items():
             print(f"   {name}: {path}")
-        
+
         if self.ai.is_available():
             stats = self.ai.get_stats()
-            print(f"\n📊 AI Stats:")
+            print(f"\nAI Stats:")
             print(f"   API calls: {stats['api_calls']}")
             print(f"   Words generated: {stats['words_generated']}")
             print(f"   Cache hits: {stats['cache_hits']}")
-        
+            print(f"   Tokens used: {stats.get('tokens_used', 0)}")
+
+        if self._csp_stats:
+            print(f"\nCSP Stats:")
+            print(f"   Backtracks: {self._csp_stats.get('backtracks', 0)}")
+            print(f"   AC-3 revisions: {self._csp_stats.get('ac3_revisions', 0)}")
+            print(f"   AI words added: {self._csp_stats.get('ai_words_added', 0)}")
+
+        print(f"\nGeneration time: {elapsed:.2f} seconds")
+
         return output_files
-    
+
     def _build_word_list(self):
         """Build word list from AI and fallback sources."""
         # Get themed words from AI
         if self.ai.is_available():
             themed = self.ai.generate_themed_words(
-                self.config.theme,
-                count=50,
+                self.config.topic,
+                count=60,
                 min_length=3,
-                max_length=self.config.size
+                max_length=self.config.size,
+                difficulty=self.config.difficulty,
+                puzzle_type=self.config.puzzle_type,
+                topic_aspects=self.config.topic_aspects,
             )
             for tw in themed:
                 self.word_list.append(tw.word)
                 self.themed_words[tw.word] = tw
-        
+
         # Add base word list
         base_words = self._get_base_word_list()
         self.word_list.extend(base_words)
-        
+
         # Deduplicate and filter
         self.word_list = list(set(
-            w.upper() for w in self.word_list 
+            w.upper() for w in self.word_list
             if 3 <= len(w) <= self.config.size and w.isalpha()
         ))
-        
+
         # Sort by length (longer words first for theme entries)
         self.word_list.sort(key=len, reverse=True)
-    
+
     def _get_base_word_list(self) -> List[str]:
         """Get base crossword word list."""
-        # Common crossword words organized by length
         words = []
-        
+
         # 3-letter words
         words.extend([
             "ACE", "ACT", "ADD", "AGE", "AID", "AIM", "AIR", "ALL", "AND", "ANT",
@@ -224,7 +305,7 @@ class CrosswordGenerator:
             "WIT", "WOE", "WOK", "WON", "WOO", "WOW", "YAK", "YAM", "YAP", "YAW",
             "YEA", "YES", "YET", "YEW", "YOU", "ZAP", "ZEN", "ZIP", "ZOO",
         ])
-        
+
         # 4-letter words
         words.extend([
             "ABLE", "ACHE", "ACID", "AGED", "AIDE", "AREA", "ARMY", "AWAY", "BABY",
@@ -315,7 +396,7 @@ class CrosswordGenerator:
             "WORE", "WORK", "WORM", "WORN", "WRAP", "YARD", "YARN", "YEAH", "YEAR",
             "YELL", "YOUR", "ZERO", "ZONE", "ZOOM",
         ])
-        
+
         # 5-letter words
         words.extend([
             "ABOUT", "ABOVE", "ABUSE", "ACTOR", "ACUTE", "ADMIT", "ADOPT", "ADULT",
@@ -379,129 +460,142 @@ class CrosswordGenerator:
             "MEDIA", "MERIT", "METAL", "METER", "MIDST", "MIGHT", "MILES", "MILLS",
             "MINDS", "MINER", "MINOR", "MINUS", "MIXED", "MODEL", "MODES", "MONEY",
             "MONTH", "MORAL", "MOTOR", "MOTTO", "MOUNT", "MOUSE", "MOUTH", "MOVED",
-            "MOVES", "MOVIE", "MUSIC", "Myers", "NAMED", "NAMES", "NEEDS", "NERVE",
-            "NEVER", "NEWER", "NEWLY", "NIGHT", "NINTH", "NOISE", "NORTH", "NOTED",
-            "NOTES", "NOVEL", "NURSE", "OCCUR", "OCEAN", "OFFER", "OFTEN", "OLIVE",
-            "ONSET", "OPERA", "OPTED", "ORBIT", "ORDER", "OTHER", "OUGHT", "OUTER",
-            "OWNED", "OWNER", "OXIDE", "OZONE", "PACKS", "PAGES", "PAINT", "PAIRS",
-            "PANEL", "PANIC", "PAPER", "PARKS", "PARTS", "PARTY", "PASTA", "PASTE",
-            "PATCH", "PATHS", "PAUSE", "PEACE", "PEAKS", "PEARL", "PEERS", "PENNY",
-            "PHASE", "PHONE", "PHOTO", "PIANO", "PICKS", "PIECE", "PILOT", "PINCH",
-            "PITCH", "PIZZA", "PLACE", "PLAIN", "PLANE", "PLANS", "PLANT", "PLATE",
-            "PLAYS", "PLAZA", "PLEAD", "PLOTS", "POEMS", "POINT", "POLAR", "POLES",
-            "POLLS", "POOLS", "PORCH", "PORTS", "POSED", "POSTS", "POUND", "POWER",
-            "PRESS", "PRICE", "PRIDE", "PRIME", "PRINT", "PRIOR", "PRIZE", "PROBE",
-            "PROOF", "PROUD", "PROVE", "PULLS", "PULSE", "PUMPS", "PUNCH", "PUPIL",
-            "PURSE", "QUEEN", "QUEST", "QUEUE", "QUICK", "QUIET", "QUITE", "QUOTA",
-            "QUOTE", "RACES", "RADAR", "RADIO", "RAGED", "RAIDS", "RAILS", "RAISE",
-            "RALLY", "RANCH", "RANGE", "RANKS", "RAPID", "RATED", "RATES", "RATIO",
-            "REACH", "REACT", "READS", "READY", "REALM", "REBEL", "REFER", "REIGN",
-            "RELAX", "REPLY", "REPUB", "RESET", "RESIN", "RESTS", "RIDER", "RIDGE",
-            "RIFLE", "RIGHT", "RIGID", "RINGS", "RISEN", "RISES", "RISKS", "RISKY",
-            "RIVAL", "RIVER", "ROADS", "ROBOT", "ROCKS", "ROCKY", "ROLES", "ROMAN",
-            "ROOMS", "ROOTS", "ROUGH", "ROUND", "ROUTE", "ROYAL", "RUGBY", "RUINS",
-            "RULED", "RULER", "RULES", "RURAL", "SADLY", "SAFER", "SAINT", "SALAD",
-            "SALES", "SANDY", "SAUCE", "SAVED", "SAVES", "SCALE", "SCENE", "SCOPE",
-            "SCORE", "SEATS", "SEEDS", "SEEKS", "SEEMS", "SEIZE", "SELLS", "SENDS",
-            "SENSE", "SERUM", "SERVE", "SETUP", "SEVEN", "SHADE", "SHAKE", "SHALL",
-            "SHAME", "SHAPE", "SHARE", "SHARP", "SHEEP", "SHEER", "SHEET", "SHELF",
-            "SHELL", "SHIFT", "SHINE", "SHIPS", "SHIRT", "SHOCK", "SHOES", "SHOOK",
-            "SHOOT", "SHOPS", "SHORE", "SHORT", "SHOTS", "SHOWN", "SHOWS", "SIDES",
-            "SIGHT", "SIGMA", "SIGNS", "SILLY", "SIMON", "SINCE", "SITES", "SIXTH",
-            "SIXTY", "SIZED", "SIZES", "SKILL", "SKINS", "SLAVE", "SLEEP", "SLICE",
-            "SLIDE", "SLOPE", "SLOWS", "SMALL", "SMART", "SMELL", "SMILE", "SMITH",
-            "SMOKE", "SNAKE", "SOLID", "SOLVE", "SONGS", "SORRY", "SORTS", "SOULS",
-            "SOUND", "SOUTH", "SPACE", "SPARE", "SPARK", "SPEAK", "SPEED", "SPELL",
-            "SPEND", "SPENT", "SPILL", "SPINE", "SPLIT", "SPOKE", "SPORT", "SPOTS",
-            "SPRAY", "SQUAD", "STACK", "STAFF", "STAGE", "STAKE", "STAMP", "STAND",
-            "STARK", "STARS", "START", "STATE", "STAYS", "STEAL", "STEAM", "STEEL",
-            "STEEP", "STEMS", "STEPS", "STICK", "STIFF", "STILL", "STOCK", "STONE",
-            "STOOD", "STOPS", "STORE", "STORM", "STORY", "STOVE", "STRAP", "STRAW",
-            "STRIP", "STUCK", "STUFF", "STYLE", "SUGAR", "SUITE", "SUITS", "SUPER",
-            "SURGE", "SWEET", "SWEPT", "SWIFT", "SWING", "SWISS", "SWORD", "SWUNG",
-            "TABLE", "TAKEN", "TAKES", "TALES", "TALKS", "TANKS", "TAPES", "TASKS",
-            "TASTE", "TAXES", "TEACH", "TEAMS", "TEARS", "TEETH", "TELLS", "TEMPO",
-            "TENDS", "TENTH", "TERMS", "TESTS", "TEXAS", "TEXTS", "THANK", "THEFT",
-            "THEME", "THERE", "THESE", "THICK", "THIEF", "THING", "THINK", "THIRD",
-            "THOSE", "THREE", "THREW", "THROW", "THUMB", "TIGER", "TIGHT", "TIMES",
-            "TINY", "TIRED", "TITLE", "TODAY", "TOKEN", "TONES", "TOOLS", "TOOTH",
-            "TOPIC", "TOTAL", "TOUCH", "TOUGH", "TOURS", "TOWER", "TOWNS", "TRACE",
-            "TRACK", "TRADE", "TRAIL", "TRAIN", "TRAIT", "TRASH", "TREAT", "TREES",
-            "TREND", "TRIAL", "TRIBE", "TRICK", "TRIED", "TRIES", "TRIPS", "TROOP",
-            "TRUCK", "TRULY", "TRUNK", "TRUST", "TRUTH", "TUBES", "TUMOR", "TUNED",
-            "TURNS", "TWICE", "TWINS", "TWIST", "TYPES", "UNCLE", "UNDER", "UNION",
-            "UNITS", "UNITY", "UNTIL", "UPPER", "UPSET", "URBAN", "URGED", "USAGE",
-            "USERS", "USING", "USUAL", "VALID", "VALUE", "VALVE", "VAPOR", "VAULT",
-            "VENUE", "VERGE", "VIDEO", "VIEWS", "VIRUS", "VISIT", "VITAL", "VOCAL",
-            "VOICE", "VOTES", "WAGES", "WAGON", "WAIST", "WALKS", "WALLS", "WANTS",
-            "WASTE", "WATCH", "WATER", "WAVES", "WEEKS", "WEIGH", "WEIRD", "WELLS",
-            "WHALE", "WHEAT", "WHEEL", "WHERE", "WHICH", "WHILE", "WHITE", "WHOLE",
-            "WHOSE", "WIDER", "WIDTH", "WINDS", "WINES", "WINGS", "WIRED", "WIRES",
-            "WITCH", "WIVES", "WOMAN", "WOMEN", "WOODS", "WORDS", "WORKS", "WORLD",
-            "WORRY", "WORSE", "WORST", "WORTH", "WOULD", "WOUND", "WRIST", "WRITE",
-            "WRONG", "WROTE", "YARDS", "YEARS", "YIELD", "YOUNG", "YOURS", "YOUTH",
-            "ZONES",
+            "MOVES", "MOVIE", "MUSIC", "NAMED", "NAMES", "NEEDS", "NERVE", "NEVER",
+            "NEWER", "NEWLY", "NIGHT", "NINTH", "NOISE", "NORTH", "NOTED", "NOTES",
+            "NOVEL", "NURSE", "OCCUR", "OCEAN", "OFFER", "OFTEN", "OLIVE", "ONSET",
+            "OPERA", "OPTED", "ORBIT", "ORDER", "OTHER", "OUGHT", "OUTER", "OWNED",
+            "OWNER", "OXIDE", "OZONE", "PACKS", "PAGES", "PAINT", "PAIRS", "PANEL",
+            "PANIC", "PAPER", "PARKS", "PARTS", "PARTY", "PASTA", "PASTE", "PATCH",
+            "PATHS", "PAUSE", "PEACE", "PEAKS", "PEARL", "PEERS", "PENNY", "PHASE",
+            "PHONE", "PHOTO", "PIANO", "PICKS", "PIECE", "PILOT", "PINCH", "PITCH",
+            "PIZZA", "PLACE", "PLAIN", "PLANE", "PLANS", "PLANT", "PLATE", "PLAYS",
+            "PLAZA", "PLEAD", "PLOTS", "POEMS", "POINT", "POLAR", "POLES", "POLLS",
+            "POOLS", "PORCH", "PORTS", "POSED", "POSTS", "POUND", "POWER", "PRESS",
+            "PRICE", "PRIDE", "PRIME", "PRINT", "PRIOR", "PRIZE", "PROBE", "PROOF",
+            "PROUD", "PROVE", "PULLS", "PULSE", "PUMPS", "PUNCH", "PUPIL", "PURSE",
+            "QUEEN", "QUEST", "QUEUE", "QUICK", "QUIET", "QUITE", "QUOTA", "QUOTE",
+            "RACES", "RADAR", "RADIO", "RAGED", "RAIDS", "RAILS", "RAISE", "RALLY",
+            "RANCH", "RANGE", "RANKS", "RAPID", "RATED", "RATES", "RATIO", "REACH",
+            "REACT", "READS", "READY", "REALM", "REBEL", "REFER", "REIGN", "RELAX",
+            "REPLY", "RESET", "RESIN", "RESTS", "RIDER", "RIDGE", "RIFLE", "RIGHT",
+            "RIGID", "RINGS", "RISEN", "RISES", "RISKS", "RISKY", "RIVAL", "RIVER",
+            "ROADS", "ROBOT", "ROCKS", "ROCKY", "ROLES", "ROMAN", "ROOMS", "ROOTS",
+            "ROUGH", "ROUND", "ROUTE", "ROYAL", "RUGBY", "RUINS", "RULED", "RULER",
+            "RULES", "RURAL", "SADLY", "SAFER", "SAINT", "SALAD", "SALES", "SANDY",
+            "SAUCE", "SAVED", "SAVES", "SCALE", "SCENE", "SCOPE", "SCORE", "SEATS",
+            "SEEDS", "SEEKS", "SEEMS", "SEIZE", "SELLS", "SENDS", "SENSE", "SERUM",
+            "SERVE", "SETUP", "SEVEN", "SHADE", "SHAKE", "SHALL", "SHAME", "SHAPE",
+            "SHARE", "SHARP", "SHEEP", "SHEER", "SHEET", "SHELF", "SHELL", "SHIFT",
+            "SHINE", "SHIPS", "SHIRT", "SHOCK", "SHOES", "SHOOK", "SHOOT", "SHOPS",
+            "SHORE", "SHORT", "SHOTS", "SHOWN", "SHOWS", "SIDES", "SIGHT", "SIGMA",
+            "SIGNS", "SILLY", "SIMON", "SINCE", "SITES", "SIXTH", "SIXTY", "SIZED",
+            "SIZES", "SKILL", "SKINS", "SLAVE", "SLEEP", "SLICE", "SLIDE", "SLOPE",
+            "SLOWS", "SMALL", "SMART", "SMELL", "SMILE", "SMITH", "SMOKE", "SNAKE",
+            "SOLID", "SOLVE", "SONGS", "SORRY", "SORTS", "SOULS", "SOUND", "SOUTH",
+            "SPACE", "SPARE", "SPARK", "SPEAK", "SPEED", "SPELL", "SPEND", "SPENT",
+            "SPILL", "SPINE", "SPLIT", "SPOKE", "SPORT", "SPOTS", "SPRAY", "SQUAD",
+            "STACK", "STAFF", "STAGE", "STAKE", "STAMP", "STAND", "STARK", "STARS",
+            "START", "STATE", "STAYS", "STEAL", "STEAM", "STEEL", "STEEP", "STEMS",
+            "STEPS", "STICK", "STIFF", "STILL", "STOCK", "STONE", "STOOD", "STOPS",
+            "STORE", "STORM", "STORY", "STOVE", "STRAP", "STRAW", "STRIP", "STUCK",
+            "STUFF", "STYLE", "SUGAR", "SUITE", "SUITS", "SUPER", "SURGE", "SWEET",
+            "SWEPT", "SWIFT", "SWING", "SWISS", "SWORD", "SWUNG", "TABLE", "TAKEN",
+            "TAKES", "TALES", "TALKS", "TANKS", "TAPES", "TASKS", "TASTE", "TAXES",
+            "TEACH", "TEAMS", "TEARS", "TEETH", "TELLS", "TEMPO", "TENDS", "TENTH",
+            "TERMS", "TESTS", "TEXAS", "TEXTS", "THANK", "THEFT", "THEME", "THERE",
+            "THESE", "THICK", "THIEF", "THING", "THINK", "THIRD", "THOSE", "THREE",
+            "THREW", "THROW", "THUMB", "TIGER", "TIGHT", "TIMES", "TIRED", "TITLE",
+            "TODAY", "TOKEN", "TONES", "TOOLS", "TOOTH", "TOPIC", "TOTAL", "TOUCH",
+            "TOUGH", "TOURS", "TOWER", "TOWNS", "TRACE", "TRACK", "TRADE", "TRAIL",
+            "TRAIN", "TRAIT", "TRASH", "TREAT", "TREES", "TREND", "TRIAL", "TRIBE",
+            "TRICK", "TRIED", "TRIES", "TRIPS", "TROOP", "TRUCK", "TRULY", "TRUNK",
+            "TRUST", "TRUTH", "TUBES", "TUMOR", "TUNED", "TURNS", "TWICE", "TWINS",
+            "TWIST", "TYPES", "UNCLE", "UNDER", "UNION", "UNITS", "UNITY", "UNTIL",
+            "UPPER", "UPSET", "URBAN", "URGED", "USAGE", "USERS", "USING", "USUAL",
+            "VALID", "VALUE", "VALVE", "VAPOR", "VAULT", "VENUE", "VERGE", "VIDEO",
+            "VIEWS", "VIRUS", "VISIT", "VITAL", "VOCAL", "VOICE", "VOTES", "WAGES",
+            "WAGON", "WAIST", "WALKS", "WALLS", "WANTS", "WASTE", "WATCH", "WATER",
+            "WAVES", "WEEKS", "WEIGH", "WEIRD", "WELLS", "WHALE", "WHEAT", "WHEEL",
+            "WHERE", "WHICH", "WHILE", "WHITE", "WHOLE", "WHOSE", "WIDER", "WIDTH",
+            "WINDS", "WINES", "WINGS", "WIRED", "WIRES", "WITCH", "WIVES", "WOMAN",
+            "WOMEN", "WOODS", "WORDS", "WORKS", "WORLD", "WORRY", "WORSE", "WORST",
+            "WORTH", "WOULD", "WOUND", "WRIST", "WRITE", "WRONG", "WROTE", "YARDS",
+            "YEARS", "YIELD", "YOUNG", "YOURS", "YOUTH", "ZONES",
         ])
-        
+
         return words
-    
+
     def _create_grid(self) -> Optional[Grid]:
         """Create a valid grid pattern."""
         generator = GridGenerator(size=self.config.size)
-        
+
         # Try predefined patterns first
         num_patterns = generator.list_available_patterns()
-        
+
         for i in range(max(num_patterns, 1)):
             if num_patterns > 0:
                 grid = generator.generate(pattern_index=i)
             else:
                 grid = generator.generate_random()
-            
+
             if grid:
                 return grid
-        
+
         return None
-    
-    def _fill_grid(self, grid: Grid) -> tuple[Grid, Optional[Dict[WordSlot, str]]]:
+
+    def _fill_grid(
+        self,
+        grid: Grid
+    ) -> tuple[Grid, Optional[Dict[WordSlot, str]]]:
         """Fill grid using CSP solver with AI word requests."""
         # Create word generator function for CSP
         word_gen = None
         if self.ai.is_available():
-            word_gen = create_pattern_word_generator(self.ai, self.config.theme)
-        
+            word_gen = create_pattern_word_generator(
+                self.ai,
+                self.config.topic,
+                set()
+            )
+
         # Create and run CSP solver
         csp = CrosswordCSP(grid, self.word_list, word_generator=word_gen)
-        
+
         solution = csp.solve(use_inference=True)
-        
+
         if solution:
             # Apply solution to grid
             csp.apply_solution(solution)
-            
+
             # Store stats
             self._csp_stats = csp.stats
-            
+
             return grid, solution
-        
+
         return grid, None
-    
-    def _generate_clues(self, solution: Dict[WordSlot, str]) -> Dict[str, List]:
+
+    def _generate_clues(
+        self,
+        solution: Dict[WordSlot, str]
+    ) -> Dict[str, List]:
         """Generate clues for all words using AI."""
         across_clues = []
         down_clues = []
-        
+
         # Get all words
         words = list(solution.values())
-        
+
         # Generate clues in batch if AI is available
         if self.ai.is_available():
             # Separate themed words (already have clues) from others
             needs_clues = [w for w in words if w not in self.themed_words]
-            clues = self.ai.generate_clues_batch(needs_clues, self.config.difficulty)
+            clues = self.ai.generate_clues_batch(
+                needs_clues,
+                self.config.difficulty,
+                self.config.topic
+            )
         else:
             clues = {}
-        
+
         # Build clue lists
         for slot, word in solution.items():
             if word in self.themed_words:
@@ -510,21 +604,21 @@ class CrosswordGenerator:
                 clue = clues[word]
             else:
                 clue = f"Clue for {word}"
-            
+
             if slot.direction == Direction.ACROSS:
                 across_clues.append((slot.number, clue, len(word)))
             else:
                 down_clues.append((slot.number, clue, len(word)))
-        
+
         # Sort by clue number
         across_clues.sort(key=lambda x: x[0])
         down_clues.sort(key=lambda x: x[0])
-        
+
         return {"across": across_clues, "down": down_clues}
-    
+
     def _render_output(
-        self, 
-        grid: Grid, 
+        self,
+        grid: Grid,
         solution: Dict[WordSlot, str],
         clues: Dict
     ) -> Dict[str, str]:
@@ -542,7 +636,7 @@ class CrosswordGenerator:
                 else:
                     row_chars.append('.')
             grid_chars.append(row_chars)
-        
+
         # Build numbers dict
         numbers = {}
         for row in range(self.config.size):
@@ -550,80 +644,108 @@ class CrosswordGenerator:
                 cell = grid.get_cell(row, col)
                 if cell.number:
                     numbers[(row, col)] = cell.number
-        
+
         # Create CrosswordData
         data = CrosswordData(
-            title=f"{self.config.theme} Crossword",
+            title=f"{self.config.topic} Crossword",
             author=self.config.author,
             size=self.config.size,
             grid=grid_chars,
             numbers=numbers,
             across_clues=clues["across"],
             down_clues=clues["down"],
-            theme=self.config.theme,
+            theme=self.config.topic,
             difficulty=self.config.difficulty.title()
         )
-        
+
         # Render
-        os.makedirs(self.config.output_dir, exist_ok=True)
-        
+        output_dir = self.config.output.directory
+        os.makedirs(output_dir, exist_ok=True)
+
         renderer = CrosswordPageRenderer()
-        base_name = self.config.theme.lower().replace(" ", "_")[:20]
-        
-        return renderer.render_all_pages(data, self.config.output_dir, base_name)
+        base_name = self.config.topic.lower().replace(" ", "_")[:20]
+
+        return renderer.render_all_pages(data, output_dir, base_name)
+
+    def _export_yaml(
+        self,
+        grid: Grid,
+        solution: Dict[WordSlot, str],
+        clues: Dict
+    ) -> Optional[str]:
+        """Export puzzle to YAML intermediate format."""
+        if not HAS_YAML_EXPORTER:
+            return None
+
+        try:
+            exporter = YAMLExporter()
+
+            output_dir = self.config.output.directory
+            base_name = self.config.topic.lower().replace(" ", "_")[:20]
+            yaml_path = os.path.join(output_dir, f"{base_name}_puzzle.yaml")
+
+            # Build stats
+            elapsed = time.time() - self.start_time
+            stats = {
+                'total_ai_calls': self.ai.stats.get('api_calls', 0),
+                'pattern_match_calls': self._csp_stats.get('words_requested', 0),
+                'clue_generation_calls': 0,  # TODO: Track separately
+                'word_list_calls': 1 if self.ai.is_available() else 0,
+                'theme_development_calls': 0,
+                'generation_time_seconds': elapsed,
+                'backtracks': self._csp_stats.get('backtracks', 0),
+                'ac3_revisions': self._csp_stats.get('ac3_revisions', 0),
+            }
+
+            return exporter.save(
+                grid=grid,
+                solution=solution,
+                clues=clues,
+                title=self.config.topic,
+                author=self.config.author,
+                path=yaml_path,
+                difficulty=self.config.difficulty,
+                puzzle_type=self.config.puzzle_type,
+                stats=stats,
+            )
+        except Exception as e:
+            print(f"Warning: Could not export YAML: {e}")
+            return None
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate AI-powered crossword puzzles"
-    )
-    parser.add_argument(
-        "--topic", "-t",
-        default="General Knowledge",
-        help="Theme topic for the puzzle"
-    )
-    parser.add_argument(
-        "--size", "-s",
-        type=int,
-        default=5,
-        choices=[3, 5, 7, 9, 11, 13, 15],
-        help="Grid size (default: 5)"
-    )
-    parser.add_argument(
-        "--difficulty", "-d",
-        default="medium",
-        choices=["easy", "medium", "hard"],
-        help="Difficulty level"
-    )
-    parser.add_argument(
-        "--output", "-o",
-        default="./output",
-        help="Output directory"
-    )
-    parser.add_argument(
-        "--author", "-a",
-        default="AI Generator",
-        help="Author name"
-    )
-    parser.add_argument(
-        "--api-key",
-        default=None,
-        help="Anthropic API key (or set ANTHROPIC_API_KEY env var)"
-    )
-    
+    """Main entry point."""
+    parser = create_argument_parser()
     args = parser.parse_args()
-    
-    config = GeneratorConfig(
-        size=args.size,
-        theme=args.topic,
-        difficulty=args.difficulty,
-        author=args.author,
-        api_key=args.api_key,
-        output_dir=args.output
-    )
-    
-    generator = CrosswordGenerator(config)
-    generator.generate()
+
+    try:
+        # Load configuration
+        config = load_config(args)
+
+        # Handle dry-run
+        if hasattr(args, 'dry_run') and args.dry_run:
+            print("Configuration valid:")
+            print(f"  Topic: {config.topic}")
+            print(f"  Size: {config.size}")
+            print(f"  Difficulty: {config.difficulty}")
+            print(f"  Puzzle Type: {config.puzzle_type}")
+            print(f"  Max AI Callbacks: {config.generation.max_ai_callbacks}")
+            print(f"  Output Directory: {config.output.directory}")
+            return
+
+        # Generate puzzle
+        generator = CrosswordGenerator(config)
+        generator.generate()
+
+    except ConfigValidationError as e:
+        print(f"Configuration error: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nGeneration cancelled.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

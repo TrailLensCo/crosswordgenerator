@@ -1,0 +1,24 @@
+# Simple test configuration for development
+# Uses a 3x3 grid that can be filled without AI
+
+puzzle:
+  topic: "Test"
+  size: 3
+  difficulty: easy
+  puzzle_type: themeless
+  author: "Test"
+
+generation:
+  max_ai_callbacks: 50
+
+output:
+  directory: "./output/test"
+  formats:
+    - svg_puzzle
+    - svg_clues
+    - svg_solution
+    - html_complete
+
+validation:
+  enforce_nyt_rules: false
+  min_word_length: 3
