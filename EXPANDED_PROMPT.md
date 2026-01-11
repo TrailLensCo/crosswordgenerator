@@ -21,6 +21,21 @@ Expand the existing Python crossword generator to:
 4. **Add AI callback limits** - Prevent runaway token usage with configurable hard limits
 5. **Implement comprehensive testing** - Unit tests and functional tests for all components
 
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [PLACEMENT_ALGORITHM.md](PLACEMENT_ALGORITHM.md) | **Detailed word placement algorithm specification** - CSP formulation, AC-3 algorithm, backtracking with MRV/LCV heuristics, exception handling, AI integration points |
+| [DESIGN.md](DESIGN.md) | High-level architecture overview |
+| [CLAUDE.md](CLAUDE.md) | Development instructions for Claude Code |
+
+**IMPORTANT:** The word placement algorithm is fully specified in `PLACEMENT_ALGORITHM.md`. All implementations of the CSP solver must follow this specification, including:
+- Constraint types and enforcement
+- AC-3 arc consistency algorithm
+- MRV and LCV heuristics
+- Empty domain handling with AI fallback
+- Exception handling and recovery strategies
+
 ---
 
 ## Configuration System
@@ -1064,11 +1079,16 @@ class AIWordGenerator:
 
 **Modify:** `src/csp_solver.py`
 
+**Reference:** See [PLACEMENT_ALGORITHM.md](PLACEMENT_ALGORITHM.md) for complete algorithm specification.
+
 **Requirements:**
 - [ ] Accept `AICallbackLimiter` in constructor
 - [ ] Check limits before requesting pattern-matching words
 - [ ] Implement graceful degradation when limits reached
 - [ ] Track statistics on AI-assisted vs. base-word-list fills
+- [ ] Implement exception handling per PLACEMENT_ALGORITHM.md Section 6
+- [ ] Follow AC-3 algorithm specification in PLACEMENT_ALGORITHM.md Section 4.2
+- [ ] Implement MRV/LCV heuristics per PLACEMENT_ALGORITHM.md Section 5.2-5.3
 
 ---
 
@@ -1642,6 +1662,7 @@ pytest tests/ -v --cov=src
 | 1.0 | 2026-01-11 | Mark Buckaway | Initial expanded prompt |
 | 1.1 | 2026-01-11 | Mark Buckaway | Changed grid size from 10×10 to 11×11 |
 | 1.2 | 2026-01-11 | Mark Buckaway | Resolved ambiguities: added theme type requirements, word quality criteria, base word list source (downloaded/cached), copyright header requirements, SVG output clarifications (one page per doc), fixed test assertion |
+| 1.3 | 2026-01-11 | Mark Buckaway | Added reference to PLACEMENT_ALGORITHM.md for detailed word placement algorithm specification; updated CSP Solver task requirements |
 
 ---
 
