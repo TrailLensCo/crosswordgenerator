@@ -101,6 +101,71 @@ When both command-line and config file are provided:
 2. Config file provides defaults
 3. Built-in defaults as fallback
 
+### Word Quality Threshold
+
+The `word_quality_threshold` (0.0 to 1.0) determines minimum acceptable word quality based on:
+
+1. **Common Usage Frequency (50% weight)**
+   - Words appearing in top 10,000 most common English words score 1.0
+   - Words in top 50,000 score 0.7
+   - Words in top 100,000 score 0.4
+   - Rarer words score 0.2
+
+2. **Crossword-Friendliness (50% weight)**
+   - No obscure abbreviations: +0.3
+   - Contains common letter patterns (vowel-consonant mix): +0.3
+   - Not crosswordese (ERNE, ESNE, ANOA, etc.): +0.2
+   - Appears in major crossword dictionaries: +0.2
+
+**Quality Score Calculation:**
+```
+quality = (frequency_score * 0.5) + (friendliness_score * 0.5)
+```
+
+**Threshold Guidelines:**
+- `0.7` (default): Standard quality, allows moderately common words
+- `0.8`: High quality, prefers well-known words
+- `0.5`: Relaxed, allows more obscure fill when needed
+
+### Base Word List Source
+
+When AI limits are reached or AI is unavailable, the system falls back to a base word list:
+
+**Source:** Downloaded/cached public dictionary
+
+**Implementation:**
+```yaml
+base_word_list:
+  source: "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
+  cache_path: "./data/base_words.txt"
+  cache_expiry_days: 30
+  fallback_builtin: true  # Use hardcoded minimal list if download fails
+```
+
+**Word List Requirements:**
+- Minimum 50,000 words
+- Organized by length for efficient pattern matching
+- Pre-filtered to remove offensive content
+- Includes common crossword words and proper nouns
+
+**Fallback Priority:**
+1. Cached downloaded word list
+2. Re-download from source
+3. Built-in minimal word list (5,000 common words)
+
+### SVG Output Requirements
+
+All SVG outputs must be **one page per document** at 8.5" × 11" (612 × 792 pixels at 72 DPI):
+
+| Output File | Description | Content |
+|-------------|-------------|---------|
+| `{name}_puzzle.svg` | Empty puzzle grid | Grid with numbered cells, black squares, no letters |
+| `{name}_clues.svg` | Clue sheet | ACROSS and DOWN clues in two-column layout |
+| `{name}_solution.svg` | Solved puzzle | Grid with all letters filled in |
+| `{name}_answer_list.svg` | Answer list | Clues with answers (no grid) |
+
+**Note:** The `html_complete` format combines all pages into a single printable HTML document, but each SVG remains a separate single-page file.
+
 ---
 
 ## YAML Intermediate Format
@@ -479,6 +544,64 @@ prompts:
       has_revealer: true
       min_theme_entries: 3
 
+    # Theme type requirements (substituted into {{theme_type_requirements}})
+    theme_type_definitions:
+      revealer: |
+        Create a themed puzzle with a REVEALER entry that explains the theme connection.
+        - The revealer should be a phrase that ties all theme entries together
+        - Theme entries should share a common characteristic revealed by the revealer
+        - Example: If theme entries hide animals, revealer might be "HIDDEN CREATURES"
+        - Revealer is typically placed as a long across entry
+
+      themeless: |
+        Create a themeless puzzle focusing on quality fill and clever cluing.
+        - No theme entries or revealer required
+        - Emphasize interesting vocabulary and wordplay
+        - Lower word count (max 72 for 15x15)
+        - Friday/Saturday difficulty expected
+
+      phrase_transformation: |
+        Modify common phrases by adding/changing/removing elements related to the topic.
+        - Each theme entry transforms a well-known phrase
+        - The transformation must be consistent across all entries
+        - Include a revealer explaining the transformation
+        - Example: Adding "JAVA" to phrases for coffee theme: "JAVA THE HUT"
+
+      hidden_words: |
+        Conceal theme-related words within longer answer phrases.
+        - Hidden words appear consecutively within the answer
+        - All hidden words should be the same category
+        - Include a revealer hinting at what's hidden
+        - Example: "OVERDRAWN" hides DRAW for an art theme
+
+      rebus: |
+        Some squares contain multiple letters or a symbol.
+        - All theme entries must incorporate the rebus element
+        - The rebus should relate to the topic
+        - Clearly indicate which squares are rebus squares
+        - Example: Squares containing "HEART" for Valentine's theme
+
+      puns: |
+        Theme answers are puns or wordplay on the topic.
+        - Each theme entry should be a groan-worthy pun
+        - Puns should be accessible and not too obscure
+        - Include a revealer that hints at the punny nature
+        - Clues should set up the pun without giving it away
+
+      add_a_letter: |
+        Add a specific letter to common phrases to create new phrases.
+        - The same letter is added to each theme entry
+        - Resulting phrases should be humorous or surprising
+        - Include a revealer indicating which letter was added
+        - Example: Adding "B" creates "BRAIN CHECK" from "rain check"
+
+      quote: |
+        A famous quotation or quip spans multiple theme entries.
+        - The quote is split across 3-4 long theme entries
+        - Entries should be placed symmetrically
+        - Attribution can be a separate entry or part of the quote
+        - Choose quotes that are well-known and puzzle-appropriate
+
   # ============================================================
   # PUZZLE VALIDATION ASSIST
   # Called to verify puzzle quality and solvability
@@ -718,6 +841,35 @@ For an 11×11 Newfoundland culture puzzle, expected theme entries might include:
 | JIGGSDINNER | 11 | Sunday salt beef meal | Traditional food |
 | MUMMERS | 7 | Christmas disguise tradition | Festival |
 | GEORGEST | 8 | Famous St. John's pub street | Culture |
+
+---
+
+## Copyright Header Requirements
+
+All new Python source files must include the TrailLensCo copyright header per `.github/CONSTITUTION-COPYRIGHT.md`:
+
+```python
+# Copyright (c) 2026 TrailLensCo
+# All rights reserved.
+#
+# This file is proprietary and confidential.
+# Unauthorized copying, distribution, or use of this file,
+# via any medium, is strictly prohibited without the express
+# written permission of TrailLensCo.
+
+"""Module docstring here."""
+```
+
+**Files Requiring Copyright Headers:**
+- `src/config.py`
+- `src/prompt_loader.py`
+- `src/ai_limiter.py`
+- `src/yaml_exporter.py`
+- `src/yaml_importer.py`
+- `src/yaml_schema.py`
+- All test files in `tests/`
+
+**Verification:** Pre-commit hooks should validate copyright headers are present.
 
 ---
 
@@ -997,7 +1149,7 @@ class TestPuzzleConfig:
         cli_config = PuzzleConfig(topic="CLI Topic", size=None, ...)
         merged = PuzzleConfig.merge(yaml_config, cli_config)
         assert merged.topic == "CLI Topic"  # CLI wins
-        assert merged.size == 10  # YAML provides default
+        assert merged.size == 11  # YAML provides default
 
     def test_validation_errors(self):
         """Test configuration validation catches errors."""
@@ -1489,6 +1641,7 @@ pytest tests/ -v --cov=src
 |---------|------|--------|---------|
 | 1.0 | 2026-01-11 | Mark Buckaway | Initial expanded prompt |
 | 1.1 | 2026-01-11 | Mark Buckaway | Changed grid size from 10×10 to 11×11 |
+| 1.2 | 2026-01-11 | Mark Buckaway | Resolved ambiguities: added theme type requirements, word quality criteria, base word list source (downloaded/cached), copyright header requirements, SVG output clarifications (one page per doc), fixed test assertion |
 
 ---
 
