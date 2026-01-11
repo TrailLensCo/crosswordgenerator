@@ -134,6 +134,7 @@ class CrosswordGenerator:
             model=model,
             limiter=self.limiter,
             prompt_loader=self.prompt_loader,
+            logger=self.logger,
         )
 
         # Enforce --require-ai flag
@@ -272,7 +273,7 @@ class CrosswordGenerator:
             self.logger.info("Generating AI log analysis report...")
             try:
                 from log_analyzer import LogAnalyzer
-                analyzer = LogAnalyzer(self.ai)
+                analyzer = LogAnalyzer(self.ai, logger=self.logger)
                 report_path = analyzer.analyze_log(
                     log_path=self.log_file_path,
                     output_dir=self.config.output.directory
@@ -635,7 +636,7 @@ class CrosswordGenerator:
     def _create_grid(self) -> Optional[Grid]:
         """Create a valid grid pattern."""
         max_word_length = self.config.get_max_word_length()
-        generator = GridGenerator(size=self.config.size, max_word_length=max_word_length)
+        generator = GridGenerator(size=self.config.size, max_word_length=max_word_length, logger=self.logger)
 
         # Try predefined patterns first
         num_patterns = generator.list_available_patterns()
@@ -666,7 +667,7 @@ class CrosswordGenerator:
             )
 
         # Create and run CSP solver
-        csp = CrosswordCSP(grid, self.word_list, word_generator=word_gen)
+        csp = CrosswordCSP(grid, self.word_list, word_generator=word_gen, logger=self.logger)
 
         solution = csp.solve(use_inference=True)
 

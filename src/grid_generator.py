@@ -130,18 +130,19 @@ PATTERNS_21x21 = [
 class GridGenerator:
     """Generates valid crossword grid patterns."""
 
-    def __init__(self, size: int = 15, max_word_length: Optional[int] = None):
+    def __init__(self, size: int = 15, max_word_length: Optional[int] = None, logger: Optional[logging.Logger] = None):
         """
         Initialize generator.
 
         Args:
             size: Grid size (should be odd for NYT style)
             max_word_length: Maximum word length allowed (None = no limit)
+            logger: Logger instance (uses module logger if not provided)
         """
         self.size = size
         self.max_word_length = max_word_length
         self._validated_patterns_cache: Optional[List[List[Tuple[int, int]]]] = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
 
     def generate(self, pattern_index: int = 0) -> Grid:
         """

@@ -72,7 +72,8 @@ class AIWordGenerator:
         api_key: Optional[str] = None,
         model: str = "claude-sonnet-4-20250514",
         limiter: Optional[AICallbackLimiter] = None,
-        prompt_loader: Optional[object] = None
+        prompt_loader: Optional[object] = None,
+        logger: Optional[logging.Logger] = None
     ):
         """
         Initialize the AI word generator.
@@ -82,12 +83,13 @@ class AIWordGenerator:
             model: Claude model to use
             limiter: Optional AICallbackLimiter for tracking limits
             prompt_loader: Optional PromptLoader for external prompts
+            logger: Logger instance (uses module logger if not provided)
         """
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.model = model
         self.limiter = limiter or AICallbackLimiter()
         self.prompt_loader = prompt_loader
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
 
         if HAS_ANTHROPIC and self.api_key:
             self.client = anthropic.Anthropic(api_key=self.api_key)

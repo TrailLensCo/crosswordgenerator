@@ -29,7 +29,8 @@ class CrosswordCSP:
         grid: Grid,
         word_list: List[str],
         word_generator: Optional[Callable[[str, int], List[str]]] = None,
-        verbose: bool = True
+        verbose: bool = True,
+        logger: Optional[logging.Logger] = None
     ):
         """
         Initialize the CSP solver.
@@ -41,13 +42,14 @@ class CrosswordCSP:
                            Signature: (pattern: str, count: int) -> List[str]
                            This is called when a slot has no valid words.
             verbose: Whether to print progress information
+            logger: Logger instance (uses module logger if not provided)
         """
         self.grid = grid
         self.word_generator = word_generator
         self.verbose = verbose
         self._last_progress_time = time.time()
         self._progress_interval = 2.0  # Log progress every 2 seconds
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
 
         # Find all word slots
         self.variables = grid.find_word_slots()

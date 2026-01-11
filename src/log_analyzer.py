@@ -30,15 +30,16 @@ except ImportError:
 class LogAnalyzer:
     """Analyzes crossword generation logs and creates AI-powered reports."""
 
-    def __init__(self, ai_generator):
+    def __init__(self, ai_generator, logger: Optional[logging.Logger] = None):
         """
         Initialize the log analyzer.
 
         Args:
             ai_generator: AIWordGenerator instance with API access
+            logger: Logger instance (uses module logger if not provided)
         """
         self.ai = ai_generator
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
 
     def analyze_log(
         self,
