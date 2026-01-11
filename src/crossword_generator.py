@@ -109,8 +109,8 @@ class CrosswordGenerator:
                 except Exception as e:
                     print(f"Warning: Could not load prompts: {e}")
 
-        # Discover API key
-        api_key = discover_api_key(config)
+        # Discover API key (unless --no-ai is set)
+        api_key = None if config.no_ai else discover_api_key(config)
         model = get_model(config)
 
         # Initialize AI word generator
@@ -120,6 +120,16 @@ class CrosswordGenerator:
             limiter=self.limiter,
             prompt_loader=self.prompt_loader,
         )
+
+        # Enforce --require-ai flag
+        if config.require_ai and not self.ai.is_available():
+            raise ConfigValidationError(
+                "AI generation is required (--require-ai) but API key not found.\n"
+                "Please provide an API key via:\n"
+                "  - .claude-apikey.txt file in repository root\n"
+                "  - --api-key CLI argument\n"
+                "  - ANTHROPIC_API_KEY environment variable"
+            )
 
         self.word_list: List[str] = []
         self.themed_words: Dict[str, WordWithClue] = {}

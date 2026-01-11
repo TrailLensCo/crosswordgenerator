@@ -114,6 +114,10 @@ class PuzzleConfig:
     author: str = "AI Generator"
     topic_aspects: List[str] = field(default_factory=list)
 
+    # AI control flags
+    require_ai: bool = False  # Require AI to be available; error if not
+    no_ai: bool = False  # Force use of fallback; skip AI even if available
+
     # Sub-configurations
     generation: GenerationConfig = field(default_factory=GenerationConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
@@ -296,6 +300,10 @@ class PuzzleConfig:
             config.ai.model = args.model
         if hasattr(args, 'format') and args.format:
             config.output.formats = args.format.split(',')
+        if hasattr(args, 'require_ai') and args.require_ai:
+            config.require_ai = True
+        if hasattr(args, 'no_ai') and args.no_ai:
+            config.no_ai = True
 
         return config
 
@@ -441,9 +449,10 @@ def discover_api_key(config: PuzzleConfig) -> Optional[str]:
     1. CLI argument (already in config if provided)
     2. Config file api_key field
     3. Environment variable (ANTHROPIC_API_KEY or custom)
-    4. Claude config directory (~/.claude/credentials.json)
-    5. Anthropic config file (~/.anthropic/api_key)
-    6. Anthropic config JSON (~/.config/anthropic/config.json)
+    4. Repository root .claude-apikey.txt file
+    5. Claude config directory (~/.claude/credentials.json)
+    6. Anthropic config file (~/.anthropic/api_key)
+    7. Anthropic config JSON (~/.config/anthropic/config.json)
 
     Args:
         config: PuzzleConfig instance
@@ -460,7 +469,22 @@ def discover_api_key(config: PuzzleConfig) -> Optional[str]:
     if os.environ.get(env_var):
         return os.environ[env_var]
 
-    # Priority 4: Claude config directory
+    # Priority 4: Repository root .claude-apikey.txt file
+    # Find repository root by looking for .git directory
+    current_path = Path(__file__).resolve()
+    for parent in [current_path.parent] + list(current_path.parents):
+        git_dir = parent / ".git"
+        api_key_file = parent / ".claude-apikey.txt"
+        if git_dir.exists() and api_key_file.exists():
+            try:
+                key = api_key_file.read_text().strip()
+                if key:
+                    return key
+            except (IOError, OSError):
+                pass
+            break
+
+    # Priority 5: Claude config directory
     claude_creds = Path.home() / ".claude" / "credentials.json"
     if claude_creds.exists():
         try:
@@ -470,14 +494,14 @@ def discover_api_key(config: PuzzleConfig) -> Optional[str]:
         except (json.JSONDecodeError, KeyError):
             pass
 
-    # Priority 5: Anthropic config file (plain text)
+    # Priority 6: Anthropic config file (plain text)
     anthropic_key_file = Path.home() / ".anthropic" / "api_key"
     if anthropic_key_file.exists():
         key = anthropic_key_file.read_text().strip()
         if key:
             return key
 
-    # Priority 6: Anthropic config JSON
+    # Priority 7: Anthropic config JSON
     anthropic_config = Path.home() / ".config" / "anthropic" / "config.json"
     if anthropic_config.exists():
         try:
@@ -609,6 +633,16 @@ Examples:
         "--model",
         metavar="MODEL",
         help="AI model to use"
+    )
+    parser.add_argument(
+        "--require-ai",
+        action="store_true",
+        help="Require AI to be available; error out if API key not found"
+    )
+    parser.add_argument(
+        "--no-ai",
+        action="store_true",
+        help="Force use of base word list fallback; skip AI generation"
     )
 
     # Other options
