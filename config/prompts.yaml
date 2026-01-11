@@ -20,7 +20,7 @@ prompts:
     description: "Creates initial vocabulary list related to the puzzle topic"
     max_calls: 3
 
-    model: null
+    model: "claude-opus-4-5-20251101"  # Use Opus for better creativity in themed words
     temperature: 0.7
     max_tokens: 4096
 
@@ -85,7 +85,7 @@ prompts:
     description: "Finds words that match a specific letter pattern during grid filling"
     max_calls: 25
 
-    model: "claude-haiku-4-5-20251001"
+    model: "claude-opus-4-5-20251101"  # Use Opus for semantic understanding in pattern matching
     temperature: 0.3
     max_tokens: 1024
 
@@ -138,7 +138,7 @@ prompts:
     description: "Creates crossword-style clues for a batch of words"
     max_calls: 5
 
-    model: null
+    model: "claude-opus-4-5-20251101"  # Use Opus for better creativity in clue writing
     temperature: 0.8
     max_tokens: 4096
 
