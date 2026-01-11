@@ -40,7 +40,7 @@ puzzle:
   # - themeless: No central theme
   # - quote: Puzzle contains a quote
   # - rebus: Multiple letters in some squares
-  puzzle_type: revealer
+  puzzle_type: themeless
 
   # Author name (appears in output files)
   author: "Mark Buckaway"
