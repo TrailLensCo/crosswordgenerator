@@ -303,6 +303,32 @@ quality = (frequency_score * 0.5) + (friendliness_score * 0.5)
 - `0.8`: High quality, prefers well-known words
 - `0.5`: Relaxed, allows more obscure fill when needed
 
+### Maximum Word Length Guidelines
+
+**CRITICAL:** Ultra-long words (15+ letters) make grids exponentially harder to solve and should be avoided:
+
+**Word Length Distribution by Grid Size:**
+
+| Grid Size | Max Word Length | Recommended Distribution |
+| --------- | --------------- | ------------------------ |
+| 5×5 | 5 letters | 100% words 3-5 letters |
+| 9×9 | 9 letters | 70% words 3-6 letters, 30% words 7-9 letters |
+| 11×11 | 11 letters | 60% words 3-7 letters, 30% words 8-10 letters, 10% words 11 letters |
+| 15×15 | 13 letters | 60% words 3-7 letters, 30% words 8-12 letters, 10% words 13 letters |
+| 21×21 | 15 letters | 65% words 3-7 letters, 25% words 8-12 letters, 10% words 13-15 letters |
+
+**Rationale:**
+
+- Dictionary contains only **168 words of 21 letters** vs. **15,000+ of 5 letters**
+- When two long words intersect, viable options decrease **exponentially**
+- Ultra-long words often fail CSP solving due to over-constraint
+- Professional puzzles rarely use words longer than 15 letters
+
+**Implementation:**
+- Grid generator should enforce max word length based on grid size
+- Pattern selection should favor grids with more short-to-medium length words
+- AI word generation should be informed of practical length limits
+
 ### Base Word List Source
 
 When AI limits are reached or AI is unavailable, the system falls back to a base word list:

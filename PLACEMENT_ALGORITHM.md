@@ -28,8 +28,21 @@ This document provides a comprehensive specification of the word placement algor
 ```
 For each variable Xi:
   len(word) == slot.length
+  AND len(word) <= max_word_length_for_grid_size
 ```
 **Enforcement:** Pre-filter domains by length during initialization.
+
+**Maximum Word Length by Grid Size:**
+
+| Grid Size | Max Word Length | Rationale |
+| --------- | --------------- | --------- |
+| 5×5 | 5 letters | Small grid, all words short |
+| 9×9 | 9 letters | Standard constraint |
+| 11×11 | 11 letters | Standard constraint |
+| 15×15 | 13 letters | Avoid ultra-long words that are hard to fill |
+| 21×21 | 15 letters | **CRITICAL:** Only 168 words of 21 letters exist, severely limits CSP solving |
+
+**Implementation Note:** Grid patterns should be designed to favor shorter word slots. For 15×15 and 21×21 grids, use more black squares to break up ultra-long slots into shorter segments.
 
 #### C2: Intersection Constraint (Binary)
 ```
@@ -400,11 +413,14 @@ def handle_empty_domain(slot, domains, neighbors) -> bool:
 **Recovery Strategy Priority:**
 
 | Priority | Strategy | Condition | Action |
-|----------|----------|-----------|--------|
+| -------- | -------- | --------- | ------ |
 | 1 | AI word generation | AI available, within limits | Request pattern-matching words |
 | 2 | Quality relaxation | Threshold > 0.5 | Lower quality threshold by 0.2 |
 | 3 | Backtrack | During search | Undo last assignment, try next value |
 | 4 | Fail | Pre-search | Report unsolvable grid |
+
+**Note on Ultra-Long Words:**
+If empty domains occur frequently for slots with length > 15 letters, this indicates the grid pattern is over-constrained. The CSP solver cannot invent new words. With only 168 words of 21 letters in the English dictionary, patterns requiring multiple 21-letter intersecting words are mathematically unlikely to have solutions. The recommended solution is to regenerate the grid with a max word length constraint appropriate for the grid size (see C1: Length Constraint above).
 
 ---
 

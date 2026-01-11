@@ -242,19 +242,37 @@ class CrosswordGenerator:
             print(f"   AC-3 revisions: {self._csp_stats.get('ac3_revisions', 0)}")
             print(f"   AI words added: {self._csp_stats.get('ai_words_added', 0)}")
 
+        # Word length distribution
+        if solution:
+            length_dist = {}
+            for slot, word in solution.items():
+                length = len(word)
+                length_dist[length] = length_dist.get(length, 0) + 1
+
+            max_word_length = self.config.get_max_word_length()
+            print(f"\nWord Length Distribution:")
+            print(f"   Max allowed: {max_word_length} letters")
+            for length in sorted(length_dist.keys()):
+                count = length_dist[length]
+                bar = "█" * (count // 2)
+                marker = " ⚠" if length > max_word_length else ""
+                print(f"   {length:2d} letters: {count:3d} words {bar}{marker}")
+
         print(f"\nGeneration time: {elapsed:.2f} seconds")
 
         return output_files
 
     def _build_word_list(self):
         """Build word list from AI and fallback sources."""
+        max_word_length = self.config.get_max_word_length()
+
         # Get themed words from AI
         if self.ai.is_available():
             themed = self.ai.generate_themed_words(
                 self.config.topic,
                 count=60,
                 min_length=3,
-                max_length=self.config.size,
+                max_length=max_word_length,  # Use recommended max, not grid size
                 difficulty=self.config.difficulty,
                 puzzle_type=self.config.puzzle_type,
                 topic_aspects=self.config.topic_aspects,
@@ -267,10 +285,10 @@ class CrosswordGenerator:
         base_words = self._get_base_word_list()
         self.word_list.extend(base_words)
 
-        # Deduplicate and filter
+        # Deduplicate and filter - use max_word_length instead of grid size
         self.word_list = list(set(
             w.upper() for w in self.word_list
-            if 3 <= len(w) <= self.config.size and w.isalpha()
+            if 3 <= len(w) <= max_word_length and w.isalpha()
         ))
 
         # Sort by length (longer words first for theme entries)
@@ -593,7 +611,8 @@ class CrosswordGenerator:
 
     def _create_grid(self) -> Optional[Grid]:
         """Create a valid grid pattern."""
-        generator = GridGenerator(size=self.config.size)
+        max_word_length = self.config.get_max_word_length()
+        generator = GridGenerator(size=self.config.size, max_word_length=max_word_length)
 
         # Try predefined patterns first
         num_patterns = generator.list_available_patterns()

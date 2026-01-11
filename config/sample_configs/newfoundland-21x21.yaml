@@ -63,14 +63,14 @@ puzzle:
 generation:
   # Maximum total AI API calls allowed across all generation phases
   # Prevents runaway costs
-  max_ai_callbacks: 50
+  max_ai_callbacks: 75
 
   # Per-category AI call limits
   # Finer-grained control over where AI calls are spent
   limits:
-    themed_word_list: 3          # Calls for generating themed word lists
-    pattern_word_generation: 25  # Calls for filling patterns during CSP solve
-    clue_generation_batch: 5     # Calls for generating clue batches
+    themed_word_list: 5          # Calls for generating themed word lists
+    pattern_word_generation: 60  # Calls for filling patterns during CSP solve (critical for 21x21)
+    clue_generation_batch: 7     # Calls for generating clue batches
     theme_development: 2         # Calls for theme development
     validation_check: 1          # Calls for validation checks
 
@@ -159,6 +159,12 @@ validation:
   # Minimum word length in grid (standard: 3)
   # Shorter words make puzzles easier but less elegant
   min_word_length: 3
+
+  # Maximum word length in grid
+  # For 21x21 grids, recommended maximum is 15 letters
+  # Only 168 words of 21 letters exist in English, making ultra-long words
+  # extremely difficult to fill. Capping at 15 ensures solvable grids.
+  max_word_length: 15
 
   # Maximum ratio of black squares to total squares
   # NYT standard: 0.16 (16% maximum)

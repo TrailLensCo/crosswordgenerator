@@ -33,6 +33,20 @@ except ImportError:
 # Default model for AI operations
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
+# Recommended maximum word length by grid size
+# Prevents ultra-long words that are difficult to fill due to dictionary limitations
+# See EXPANDED_PROMPT.md and PLACEMENT_ALGORITHM.md for rationale
+RECOMMENDED_MAX_WORD_LENGTH = {
+    3: 3,   # Testing size
+    5: 5,   # Mini puzzles
+    7: 7,   # Small puzzles
+    9: 9,   # Standard small
+    11: 11,  # Standard daily
+    13: 13,  # Medium Sunday
+    15: 13,  # Large - cap at 13 to avoid ultra-long words
+    21: 15,  # Very large - cap at 15 (only 168 words of 21 letters exist)
+}
+
 # Valid configuration values
 VALID_SIZES = [3, 5, 7, 9, 11, 13, 15, 21]  # 3 is minimum for testing
 VALID_DIFFICULTIES = [
@@ -98,6 +112,7 @@ class ValidationConfig:
     enforce_nyt_rules: bool = True
     allow_unchecked_squares: bool = False
     min_word_length: int = 3
+    max_word_length: Optional[int] = None  # If None, uses RECOMMENDED_MAX_WORD_LENGTH
     max_black_square_ratio: float = 0.16
     require_connectivity: bool = True
     require_symmetry: bool = True
@@ -134,6 +149,20 @@ class PuzzleConfig:
             self.ai = AIConfig(**self.ai)
         if isinstance(self.validation, dict):
             self.validation = ValidationConfig(**self.validation)
+
+    def get_max_word_length(self) -> int:
+        """
+        Get the effective maximum word length for this puzzle.
+
+        Returns the configured max_word_length if set, otherwise returns
+        the recommended max for the grid size from RECOMMENDED_MAX_WORD_LENGTH.
+
+        Returns:
+            Maximum word length to use for this puzzle
+        """
+        if self.validation.max_word_length is not None:
+            return self.validation.max_word_length
+        return RECOMMENDED_MAX_WORD_LENGTH.get(self.size, self.size)
 
     @classmethod
     def from_yaml(cls, path: str) -> 'PuzzleConfig':
