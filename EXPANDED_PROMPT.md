@@ -96,9 +96,11 @@ output:
     - yaml_intermediate             # Structured puzzle data (replaces markdown)
 
 ai:
-  model: "claude-sonnet-4-20250514"
-  prompt_config: "./prompts.yaml"   # External prompt templates
-  api_key_env: "ANTHROPIC_API_KEY"  # Environment variable name
+  model: "claude-sonnet-4-20250514"   # Can be overridden by env var or CLI
+  prompt_config: "./prompts.yaml"     # External prompt templates
+  api_key: null                       # Optional: API key directly in config (not recommended)
+  api_key_env: "ANTHROPIC_API_KEY"    # Environment variable name for API key
+  model_env: "ANTHROPIC_MODEL"        # Environment variable name for model selection
 
 validation:
   enforce_nyt_rules: true           # NYT crossword requirements
@@ -115,6 +117,117 @@ When both command-line and config file are provided:
 1. Command-line arguments take precedence
 2. Config file provides defaults
 3. Built-in defaults as fallback
+
+### API Key Discovery
+
+The API key is discovered in the following priority order (first found wins):
+
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 | `--api-key` CLI argument | Explicitly passed on command line |
+| 2 | Config file `ai.api_key` | Directly in puzzle_config.yaml (not recommended for security) |
+| 3 | Environment variable | `ANTHROPIC_API_KEY` (or custom via `ai.api_key_env`) |
+| 4 | Claude config directory | `~/.claude/credentials.json` → `api_key` field |
+| 5 | Anthropic config file | `~/.anthropic/api_key` (plain text file) |
+| 6 | Anthropic config JSON | `~/.config/anthropic/config.json` → `api_key` field |
+
+**Implementation:**
+```python
+def discover_api_key(config: PuzzleConfig) -> Optional[str]:
+    """
+    Discover API key from multiple sources in priority order.
+    """
+    # Priority 1: CLI argument (already in config if provided)
+    if config.api_key and config.api_key != "null":
+        return config.api_key
+
+    # Priority 2: Config file api_key field (handled above)
+
+    # Priority 3: Environment variable
+    env_var = config.api_key_env or "ANTHROPIC_API_KEY"
+    if os.environ.get(env_var):
+        return os.environ[env_var]
+
+    # Priority 4: Claude config directory
+    claude_creds = Path.home() / ".claude" / "credentials.json"
+    if claude_creds.exists():
+        try:
+            creds = json.loads(claude_creds.read_text())
+            if creds.get("api_key"):
+                return creds["api_key"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Priority 5: Anthropic config file (plain text)
+    anthropic_key_file = Path.home() / ".anthropic" / "api_key"
+    if anthropic_key_file.exists():
+        key = anthropic_key_file.read_text().strip()
+        if key:
+            return key
+
+    # Priority 6: Anthropic config JSON
+    anthropic_config = Path.home() / ".config" / "anthropic" / "config.json"
+    if anthropic_config.exists():
+        try:
+            cfg = json.loads(anthropic_config.read_text())
+            if cfg.get("api_key"):
+                return cfg["api_key"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return None
+```
+
+**Security Note:** Avoid storing API keys directly in config files that are committed to version control. Prefer environment variables or user-specific config files.
+
+### Model Selection
+
+The AI model is selected in the following priority order:
+
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 | `--model` CLI argument | Explicitly passed on command line |
+| 2 | Config file `ai.model` | Specified in puzzle_config.yaml |
+| 3 | Environment variable | `ANTHROPIC_MODEL` (or custom via `ai.model_env`) |
+| 4 | Default | `claude-sonnet-4-20250514` |
+
+**Supported Models:**
+```yaml
+# In puzzle_config.yaml
+ai:
+  model: "claude-sonnet-4-20250514"    # Default - good balance of speed/quality
+  # model: "claude-opus-4-20250514"      # Highest quality, slower
+  # model: "claude-haiku-3-5-20241022"   # Fastest, lower quality
+```
+
+**Model Selection by Use Case:**
+| Use Case | Recommended Model | Reason |
+|----------|-------------------|--------|
+| Production puzzles | `claude-sonnet-4-20250514` | Best quality/speed balance |
+| Quick testing | `claude-haiku-3-5-20241022` | Fast iteration |
+| Competition-quality | `claude-opus-4-20250514` | Maximum creativity |
+| Cost-sensitive | `claude-haiku-3-5-20241022` | Lowest token cost |
+
+**Implementation:**
+```python
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
+
+def get_model(config: PuzzleConfig) -> str:
+    """
+    Get AI model from config with fallback chain.
+    """
+    # Priority 1: CLI argument (already in config if provided)
+    if config.model and config.model != "null":
+        return config.model
+
+    # Priority 2: Environment variable
+    env_var = config.model_env or "ANTHROPIC_MODEL"
+    if os.environ.get(env_var):
+        return os.environ[env_var]
+
+    # Priority 3: Default
+    return DEFAULT_MODEL
+```
 
 ### Word Quality Threshold
 
@@ -836,8 +949,11 @@ output:
     - yaml_intermediate
 
 ai:
-  model: "claude-sonnet-4-20250514"
+  model: "claude-sonnet-4-20250514"   # Or set ANTHROPIC_MODEL env var
   prompt_config: "./prompts.yaml"
+  # api_key: null                     # Discovered automatically (see API Key Discovery)
+  # api_key_env: "ANTHROPIC_API_KEY"  # Custom env var name if needed
+  # model_env: "ANTHROPIC_MODEL"      # Custom env var name if needed
 
 validation:
   enforce_nyt_rules: true
@@ -1118,7 +1234,8 @@ class AIWordGenerator:
 --output PATH           Output directory
 --max-ai-callbacks INT  Maximum AI API calls allowed (default: 50)
 --prompt-config PATH    Path to prompts.yaml file
---api-key KEY           Anthropic API key (or use ANTHROPIC_API_KEY env var)
+--api-key KEY           Anthropic API key (see API Key Discovery section)
+--model MODEL           AI model to use (default: claude-sonnet-4-20250514)
 --format FORMAT         Output formats (comma-separated)
 --verbose               Enable verbose logging
 --dry-run               Validate config without generating
@@ -1663,6 +1780,7 @@ pytest tests/ -v --cov=src
 | 1.1 | 2026-01-11 | Mark Buckaway | Changed grid size from 10×10 to 11×11 |
 | 1.2 | 2026-01-11 | Mark Buckaway | Resolved ambiguities: added theme type requirements, word quality criteria, base word list source (downloaded/cached), copyright header requirements, SVG output clarifications (one page per doc), fixed test assertion |
 | 1.3 | 2026-01-11 | Mark Buckaway | Added reference to PLACEMENT_ALGORITHM.md for detailed word placement algorithm specification; updated CSP Solver task requirements |
+| 1.4 | 2026-01-11 | Mark Buckaway | Added API Key Discovery section with multi-source fallback (CLI, config, env var, ~/.claude/, ~/.anthropic/); added Model Selection section with env var support and use case recommendations |
 
 ---
 
