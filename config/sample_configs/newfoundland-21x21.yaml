@@ -63,13 +63,13 @@ puzzle:
 generation:
   # Maximum total AI API calls allowed across all generation phases
   # Prevents runaway costs
-  max_ai_callbacks: 75
+  max_ai_callbacks: 85
 
   # Per-category AI call limits
   # Finer-grained control over where AI calls are spent
   limits:
-    themed_word_list: 5          # Calls for generating themed word lists
-    pattern_word_generation: 60  # Calls for filling patterns during CSP solve (critical for 21x21)
+    themed_word_list: 8          # Calls for generating themed word lists
+    pattern_word_generation: 55  # Calls for filling patterns during CSP solve (critical for 21x21)
     clue_generation_batch: 7     # Calls for generating clue batches
     theme_development: 2         # Calls for theme development
     validation_check: 1          # Calls for validation checks

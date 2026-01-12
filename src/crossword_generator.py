@@ -294,7 +294,7 @@ class CrosswordGenerator:
         if self.ai.is_available():
             themed = self.ai.generate_themed_words(
                 self.config.topic,
-                count=60,
+                count=150,
                 min_length=3,
                 max_length=max_word_length,  # Use recommended max, not grid size
                 difficulty=self.config.difficulty,
