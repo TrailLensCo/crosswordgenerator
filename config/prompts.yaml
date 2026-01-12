@@ -387,7 +387,7 @@ prompts:
 
     model: "claude-3-5-haiku-20241022"  # Use Haiku 3.5 for cost-efficient analysis
     temperature: 0.5
-    max_tokens: 16384
+    max_tokens: 8192  # Haiku 3.5 max output limit
 
     system: |
       You are a technical analyst reviewing crossword puzzle generation logs.

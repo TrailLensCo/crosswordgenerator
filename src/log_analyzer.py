@@ -281,7 +281,7 @@ Generated: {timestamp}
 """
             model = "claude-3-5-haiku-20241022"
             temperature = 0.5
-            max_tokens = 16384
+            max_tokens = 8192  # Haiku 3.5 max output limit
 
         # Make AI request
         try:
