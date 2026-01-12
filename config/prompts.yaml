@@ -8,7 +8,7 @@ version: "1.0"
 model_defaults:
   model: null                    # Use main config default if null
   temperature: 0.7
-  max_tokens: 4096
+  max_tokens: 16384
 
 prompts:
   # ============================================================
@@ -22,7 +22,7 @@ prompts:
 
     model: "claude-opus-4-5-20251101"  # Use Opus for better creativity in themed words
     temperature: 0.7
-    max_tokens: 4096
+    max_tokens: 16384
 
     system: |
       You are an expert crossword puzzle constructor with deep knowledge of
@@ -109,7 +109,7 @@ prompts:
 
     model: "claude-opus-4-5-20251101"  # Use Opus for semantic understanding in pattern matching
     temperature: 0.3
-    max_tokens: 1024
+    max_tokens: 16384
 
     system: |
       You are a crossword puzzle word expert. Given a letter pattern,
@@ -162,7 +162,7 @@ prompts:
 
     model: "claude-opus-4-5-20251101"  # Use Opus for better creativity in clue writing
     temperature: 0.8
-    max_tokens: 4096
+    max_tokens: 16384
 
     system: |
       You are an expert crossword clue writer for {{difficulty}} difficulty
@@ -218,7 +218,7 @@ prompts:
 
     model: "claude-sonnet-4-20250514"
     temperature: 0.9
-    max_tokens: 4096
+    max_tokens: 16384
 
     system: |
       You are a professional crossword constructor specializing in themed
@@ -331,7 +331,7 @@ prompts:
 
     model: null
     temperature: 0.3
-    max_tokens: 2048
+    max_tokens: 16384
 
     system: |
       You are a crossword puzzle editor reviewing submissions. Evaluate:
@@ -387,7 +387,7 @@ prompts:
 
     model: "claude-haiku-4-20250514"  # Use Haiku for cost-efficient analysis
     temperature: 0.5
-    max_tokens: 4096
+    max_tokens: 16384
 
     system: |
       You are a technical analyst reviewing crossword puzzle generation logs.
