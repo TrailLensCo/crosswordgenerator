@@ -230,6 +230,7 @@ class AIWordGenerator:
             return self._fallback_themed_words(theme)
 
         # Build prompts
+        template = None
         if self.prompt_loader:
             try:
                 template = self.prompt_loader.get('themed_word_list')
@@ -246,6 +247,7 @@ class AIWordGenerator:
                 )
             except Exception:
                 # Fall back to inline prompts
+                template = None
                 system_prompt, user_prompt = self._build_themed_prompts(
                     theme, count, min_length, max_length, difficulty
                 )
@@ -254,13 +256,24 @@ class AIWordGenerator:
                 theme, count, min_length, max_length, difficulty
             )
 
-        response = self._make_request(
-            'themed_word_list',
-            system_prompt,
-            user_prompt,
-            max_tokens=4096,
-            temperature=0.7
-        )
+        # Use template config if available, otherwise use defaults
+        if template:
+            response = self._make_request(
+                'themed_word_list',
+                system_prompt,
+                user_prompt,
+                max_tokens=template.max_tokens,
+                temperature=template.temperature,
+                model=template.model
+            )
+        else:
+            response = self._make_request(
+                'themed_word_list',
+                system_prompt,
+                user_prompt,
+                max_tokens=4096,
+                temperature=0.7
+            )
 
         if not response:
             return self._fallback_themed_words(theme)
@@ -410,6 +423,7 @@ Respond with ONLY a JSON array, no other text:
         length = len(pattern)
         known_letters = [(i, c) for i, c in enumerate(pattern) if c != '.']
 
+        template = None
         if self.prompt_loader:
             try:
                 template = self.prompt_loader.get('pattern_word_generation')
@@ -421,26 +435,35 @@ Respond with ONLY a JSON array, no other text:
                     used_words=", ".join(list(used_words)[:20]) if used_words else "none",
                     count=count,
                 )
-                model = template.model
             except Exception:
+                template = None
                 system_prompt, user_prompt = self._build_pattern_prompts(
                     pattern, length, theme, used_words, count
                 )
-                model = "claude-opus-4-5-20251101"  # Use Opus for semantic understanding (fallback)
         else:
             system_prompt, user_prompt = self._build_pattern_prompts(
                 pattern, length, theme, used_words, count
             )
-            model = "claude-opus-4-5-20251101"  # Use Opus for semantic understanding (fallback)
 
-        response = self._make_request(
-            'pattern_word_generation',
-            system_prompt,
-            user_prompt,
-            max_tokens=1024,
-            temperature=0.3,
-            model=model
-        )
+        # Use template config if available, otherwise use defaults
+        if template:
+            response = self._make_request(
+                'pattern_word_generation',
+                system_prompt,
+                user_prompt,
+                max_tokens=template.max_tokens,
+                temperature=template.temperature,
+                model=template.model
+            )
+        else:
+            response = self._make_request(
+                'pattern_word_generation',
+                system_prompt,
+                user_prompt,
+                max_tokens=1024,
+                temperature=0.3,
+                model="claude-opus-4-5-20251101"  # Use Opus for semantic understanding (fallback)
+            )
 
         if not response:
             return []
@@ -619,6 +642,7 @@ Respond with ONLY the clue, nothing else:"""
         word_list = ", ".join(needed)
         theme_context = f"\nPuzzle topic: {theme}" if theme else ""
 
+        template = None
         if self.prompt_loader:
             try:
                 template = self.prompt_loader.get('clue_generation_batch')
@@ -628,6 +652,7 @@ Respond with ONLY the clue, nothing else:"""
                     topic=theme or "General",
                 )
             except Exception:
+                template = None
                 system_prompt = f"""Write {difficulty} crossword clues.
 Requirements:
 - Concise (under 50 characters each)
@@ -652,13 +677,24 @@ Requirements:
 Respond with ONLY JSON, no other text:
 {{"WORD1": "clue1", "WORD2": "clue2", ...}}"""
 
-        response = self._make_request(
-            'clue_generation_batch',
-            system_prompt,
-            user_prompt,
-            max_tokens=2048,
-            temperature=0.8
-        )
+        # Use template config if available, otherwise use defaults
+        if template:
+            response = self._make_request(
+                'clue_generation_batch',
+                system_prompt,
+                user_prompt,
+                max_tokens=template.max_tokens,
+                temperature=template.temperature,
+                model=template.model
+            )
+        else:
+            response = self._make_request(
+                'clue_generation_batch',
+                system_prompt,
+                user_prompt,
+                max_tokens=2048,
+                temperature=0.8
+            )
 
         if response:
             # Try to parse JSON
