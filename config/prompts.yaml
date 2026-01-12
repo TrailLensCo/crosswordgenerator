@@ -385,9 +385,9 @@ prompts:
     description: "Generates a narrative analysis report from puzzle generation logs"
     max_calls: 1
 
-    model: "claude-3-5-haiku-20241022"  # Use Haiku 3.5 for cost-efficient analysis
+    model: "claude-sonnet-4-5-20250514"  # Use Sonnet 4.5 for log analysis
     temperature: 0.5
-    max_tokens: 8192  # Haiku 3.5 max output limit
+    max_tokens: 16384
 
     system: |
       You are a technical analyst reviewing crossword puzzle generation logs.

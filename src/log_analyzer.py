@@ -279,9 +279,9 @@ Generated: {timestamp}
 ## Recommendations
 [Actionable improvements]
 """
-            model = "claude-3-5-haiku-20241022"
+            model = "claude-sonnet-4-5-20250514"
             temperature = 0.5
-            max_tokens = 8192  # Haiku 3.5 max output limit
+            max_tokens = 16384
 
         # Make AI request
         try:
