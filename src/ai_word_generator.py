@@ -42,6 +42,11 @@ except ImportError:
 from ai_limiter import AICallbackLimiter
 
 
+class TruncatedResponseError(Exception):
+    """Raised when AI response is truncated due to max_tokens limit."""
+    pass
+
+
 @dataclass
 class WordWithClue:
     """A word with its clue."""
@@ -157,6 +162,24 @@ class AIWordGenerator:
 
             text = response.content[0].text
 
+            # Check for truncation
+            if response.stop_reason == "max_tokens":
+                output_tokens = response.usage.output_tokens
+                self.logger.error(
+                    f"AI response truncated for '{prompt_type}' "
+                    f"({output_tokens}/{max_tokens} tokens used)"
+                )
+                # Record failed call before raising
+                tokens = response.usage.input_tokens + output_tokens
+                self.stats["tokens_used"] += tokens
+                self.limiter.record_call(prompt_type, tokens_used=tokens, success=False)
+
+                raise TruncatedResponseError(
+                    f"Response for '{prompt_type}' exceeded max_tokens={max_tokens}. "
+                    f"Actual output: {output_tokens} tokens. "
+                    f"Increase max_tokens in config/prompts.yaml or reduce the requested count."
+                )
+
             # Record the call
             tokens = response.usage.input_tokens + response.usage.output_tokens
             self.stats["tokens_used"] += tokens
@@ -244,6 +267,17 @@ class AIWordGenerator:
 
         # Parse response
         words = self._parse_word_list_response(response, min_length, max_length)
+
+        # Validate word count - if we got less than 50% of requested, likely truncated
+        if words and len(words) < count * 0.5:
+            self.logger.error(
+                f"Received only {len(words)}/{count} words ({len(words)/count*100:.0f}%) "
+                f"from themed_word_list. Response may have been truncated."
+            )
+            raise TruncatedResponseError(
+                f"Only received {len(words)} words out of {count} requested for themed_word_list. "
+                f"This suggests response truncation. Increase max_tokens in config/prompts.yaml."
+            )
 
         if words:
             self.stats["words_generated"] += len(words)
