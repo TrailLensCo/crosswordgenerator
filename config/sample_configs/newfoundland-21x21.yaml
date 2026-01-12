@@ -65,6 +65,11 @@ generation:
   # Prevents runaway costs
   max_ai_callbacks: 85
 
+  # Maximum generation time in seconds (0 = no timeout)
+  # Default: 1800 seconds (30 minutes)
+  # If generation exceeds this time, it will abort and generate a log analysis report
+  timeout_seconds: 1800
+
   # Per-category AI call limits
   # Finer-grained control over where AI calls are spent
   limits:
@@ -165,7 +170,7 @@ validation:
   # For 21x21 grids, recommended maximum is 15 letters
   # Only 168 words of 21 letters exist in English, making ultra-long words
   # extremely difficult to fill. Capping at 15 ensures solvable grids.
-  max_word_length: 15
+  max_word_length: 10
 
   # Maximum ratio of black squares to total squares
   # NYT standard: 0.16 (16% maximum)

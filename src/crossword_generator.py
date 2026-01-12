@@ -31,6 +31,7 @@ Usage:
 import json
 import logging
 import os
+import signal
 import sys
 import time
 from typing import List, Dict, Optional
@@ -68,6 +69,16 @@ try:
 except ImportError:
     HAS_YAML_EXPORTER = False
     YAMLExporter = None
+
+
+class GenerationTimeoutError(Exception):
+    """Raised when generation exceeds timeout limit."""
+    pass
+
+
+def _timeout_handler(signum, frame):
+    """Signal handler for timeout."""
+    raise GenerationTimeoutError("Generation exceeded time limit")
 
 
 class CrosswordGenerator:
@@ -154,7 +165,52 @@ class CrosswordGenerator:
 
     def generate(self) -> Optional[Dict[str, str]]:
         """
-        Generate a complete crossword puzzle.
+        Generate a complete crossword puzzle with optional timeout.
+
+        Returns:
+            Dict of output file paths, or None if generation failed
+        """
+        # Set up timeout if configured
+        timeout_seconds = self.config.generation.timeout_seconds
+        old_handler = None
+
+        try:
+            if timeout_seconds and timeout_seconds > 0:
+                # Only set alarm on Unix systems (signal.alarm not available on Windows)
+                if hasattr(signal, 'alarm'):
+                    self.logger.info(f"Setting generation timeout: {timeout_seconds} seconds ({timeout_seconds/60:.1f} minutes)")
+                    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+                    signal.alarm(timeout_seconds)
+                else:
+                    self.logger.warning("Timeout not supported on this platform (requires Unix/Linux/Mac)")
+
+            # Run generation
+            return self._generate_internal()
+
+        except GenerationTimeoutError:
+            elapsed = time.time() - self.start_time
+            self.logger.error("=" * 60)
+            self.logger.error("GENERATION TIMEOUT")
+            self.logger.error("=" * 60)
+            self.logger.error(f"Generation exceeded timeout limit of {timeout_seconds} seconds ({timeout_seconds/60:.1f} minutes)")
+            self.logger.error(f"Elapsed time: {elapsed:.2f} seconds ({elapsed/60:.1f} minutes)")
+            self.logger.error("Generation aborted to analyze what went wrong.")
+
+            # Run log analysis even on timeout
+            self._run_log_analysis()
+
+            return None
+
+        finally:
+            # Cancel alarm and restore old handler
+            if timeout_seconds and timeout_seconds > 0 and hasattr(signal, 'alarm'):
+                signal.alarm(0)
+                if old_handler:
+                    signal.signal(signal.SIGALRM, old_handler)
+
+    def _generate_internal(self) -> Optional[Dict[str, str]]:
+        """
+        Internal generation method (can be interrupted by timeout).
 
         Returns:
             Dict of output file paths, or None if generation failed
@@ -269,22 +325,37 @@ class CrosswordGenerator:
         self.logger.info(f"Generation time: {elapsed:.2f} seconds")
 
         # Generate AI log analysis report if requested
-        if self.config.output.analyze_log and self.ai.is_available():
-            self.logger.info("Generating AI log analysis report...")
-            try:
-                from log_analyzer import LogAnalyzer
-                analyzer = LogAnalyzer(self.ai, logger=self.logger)
-                report_path = analyzer.analyze_log(
-                    log_path=self.log_file_path,
-                    output_dir=self.config.output.directory
-                )
-                if report_path:
-                    output_files['analysis_report'] = report_path
-                    self.logger.info(f"   - Analysis report saved to {report_path}")
-            except Exception as e:
-                self.logger.warning(f"Could not generate log analysis: {e}")
+        analysis_report = self._run_log_analysis()
+        if analysis_report:
+            output_files['analysis_report'] = analysis_report
 
         return output_files
+
+    def _run_log_analysis(self) -> Optional[str]:
+        """
+        Run AI log analysis if configured.
+
+        Returns:
+            Path to analysis report, or None if not generated
+        """
+        if not self.config.output.analyze_log or not self.ai.is_available():
+            return None
+
+        self.logger.info("Generating AI log analysis report...")
+        try:
+            from log_analyzer import LogAnalyzer
+            analyzer = LogAnalyzer(self.ai, logger=self.logger)
+            report_path = analyzer.analyze_log(
+                log_path=self.log_file_path,
+                output_dir=self.config.output.directory
+            )
+            if report_path:
+                self.logger.info(f"   - Analysis report saved to {report_path}")
+                return report_path
+        except Exception as e:
+            self.logger.warning(f"Could not generate log analysis: {e}")
+
+        return None
 
     def _build_word_list(self):
         """Build word list from AI and fallback sources."""

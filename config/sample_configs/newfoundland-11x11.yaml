@@ -63,13 +63,18 @@ puzzle:
 generation:
   # Maximum total AI API calls allowed across all generation phases
   # Prevents runaway costs
-  max_ai_callbacks: 50
+  max_ai_callbacks: 75
+
+  # Maximum generation time in seconds (0 = no timeout)
+  # Default: 1800 seconds (30 minutes)
+  # If generation exceeds this time, it will abort and generate a log analysis report
+  timeout_seconds: 1800
 
   # Per-category AI call limits
   # Finer-grained control over where AI calls are spent
   limits:
     themed_word_list: 4          # Calls for generating themed word lists
-    pattern_word_generation: 30  # Calls for filling patterns during CSP solve
+    pattern_word_generation: 60  # Calls for filling patterns during CSP solve
     clue_generation_batch: 5     # Calls for generating clue batches
     theme_development: 2         # Calls for theme development
     validation_check: 1          # Calls for validation checks
@@ -164,7 +169,7 @@ validation:
   # Maximum word length in grid
   # For 11x11 grids, recommended maximum is 11 letters
   # This ensures solvable grids with adequate word variety
-  max_word_length: 11
+  max_word_length: 7
 
   # Maximum ratio of black squares to total squares
   # NYT standard: 0.16 (16% maximum)

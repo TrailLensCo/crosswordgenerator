@@ -76,6 +76,7 @@ class GenerationConfig:
     enable_pattern_matching: bool = True
     fallback_to_base_words: bool = True
     max_retries_per_pattern: int = 3
+    timeout_seconds: Optional[int] = 1800  # 30 minutes default
     limits: Dict[str, int] = field(default_factory=lambda: {
         "themed_word_list": 3,
         "pattern_word_generation": 25,
@@ -244,6 +245,10 @@ class PuzzleConfig:
                     'max_retries_per_pattern',
                     config.generation.max_retries_per_pattern
                 ),
+                timeout_seconds=gen_data.get(
+                    'timeout_seconds',
+                    config.generation.timeout_seconds
+                ),
                 limits=gen_data.get('limits', config.generation.limits),
                 on_limit_reached=gen_data.get(
                     'on_limit_reached',
@@ -338,6 +343,8 @@ class PuzzleConfig:
             config.output.analyze_log = True
         if hasattr(args, 'max_ai_callbacks') and args.max_ai_callbacks:
             config.generation.max_ai_callbacks = args.max_ai_callbacks
+        if hasattr(args, 'timeout') and args.timeout is not None:
+            config.generation.timeout_seconds = args.timeout if args.timeout > 0 else None
         if hasattr(args, 'prompt_config') and args.prompt_config:
             config.ai.prompt_config = args.prompt_config
         if hasattr(args, 'api_key') and args.api_key:
@@ -674,6 +681,12 @@ Examples:
         type=int,
         metavar="INT",
         help="Maximum AI API calls allowed (default: 50)"
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        metavar="SECONDS",
+        help="Maximum generation time in seconds (default: 1800 = 30 minutes, 0 = no timeout)"
     )
     parser.add_argument(
         "--prompt-config",
