@@ -279,7 +279,7 @@ Generated: {timestamp}
 ## Recommendations
 [Actionable improvements]
 """
-            model = "claude-sonnet-4-5-20250514"
+            model = "claude-sonnet-4-5-20250929"
             temperature = 0.5
             max_tokens = 16384
 

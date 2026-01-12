@@ -147,8 +147,8 @@ prompts:
             is_common: true
 
     validation:
-      min_words: 1
-      max_words: 20
+      min_words: 10
+      max_words: 100
       pattern_match_required: true
 
   # ============================================================
@@ -216,7 +216,7 @@ prompts:
     description: "Creates cohesive theme with revealer and themed entries"
     max_calls: 2
 
-    model: "claude-sonnet-4-5-20250514"
+    model: "claude-sonnet-4-5-20250929"
     temperature: 0.9
     max_tokens: 16384
 
@@ -385,7 +385,7 @@ prompts:
     description: "Generates a narrative analysis report from puzzle generation logs"
     max_calls: 1
 
-    model: "claude-sonnet-4-5-20250514"  # Use Sonnet 4.5 for log analysis
+    model: "claude-sonnet-4-5-20250929"  # Use Sonnet 4.5 for log analysis
     temperature: 0.5
     max_tokens: 16384
 
