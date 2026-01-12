@@ -342,4 +342,4 @@ grep "elapsed" output/crossword_generator_*.log
 - **Logging initialization**: [logging_config.py](src/logging_config.py) configures dual handlers in `setup_logging()`
 - **Log rotation**: RotatingFileHandler with 10MB max size, 5 backups
 - **Format**: `%(asctime)s - %(levelname)-8s - %(name)s:%(lineno)d - %(funcName)s - %(message)s`
-- **Analysis**: [log_analyzer.py](src/log_analyzer.py) parses logs and uses Claude Haiku for report generation
+- **Analysis**: [log_analyzer.py](src/log_analyzer.py) parses logs and uses Claude Sonnet 4.5 for report generation
