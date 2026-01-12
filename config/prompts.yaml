@@ -216,7 +216,7 @@ prompts:
     description: "Creates cohesive theme with revealer and themed entries"
     max_calls: 2
 
-    model: "claude-sonnet-4-20250514"
+    model: "claude-sonnet-4-5-20250514"
     temperature: 0.9
     max_tokens: 16384
 
@@ -385,7 +385,7 @@ prompts:
     description: "Generates a narrative analysis report from puzzle generation logs"
     max_calls: 1
 
-    model: "claude-haiku-4-20250514"  # Use Haiku for cost-efficient analysis
+    model: "claude-3-5-haiku-20241022"  # Use Haiku 3.5 for cost-efficient analysis
     temperature: 0.5
     max_tokens: 16384
 

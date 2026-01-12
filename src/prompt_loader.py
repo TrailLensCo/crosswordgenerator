@@ -414,9 +414,9 @@ prompts:
     description: "Finds words that match a specific letter pattern during grid filling"
     max_calls: 25
 
-    model: "claude-haiku-4-5-20251001"
+    model: "claude-opus-4-5-20251101"
     temperature: 0.3
-    max_tokens: 1024
+    max_tokens: 16384
 
     system: |
       You are a crossword puzzle word expert. Given a letter pattern,

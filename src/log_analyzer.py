@@ -279,9 +279,9 @@ Generated: {timestamp}
 ## Recommendations
 [Actionable improvements]
 """
-            model = "claude-haiku-4-20250514"
+            model = "claude-3-5-haiku-20241022"
             temperature = 0.5
-            max_tokens = 4096
+            max_tokens = 16384
 
         # Make AI request
         try:
